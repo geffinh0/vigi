@@ -9,6 +9,11 @@ abstract class CheckinRemoteDataSource {
     required DateTime nextDeadline,
   });
 
+  Future<void> saveSettings({
+    required String modeId,
+    required int intervalMinutes,
+  });
+
   Future<List<MonitoringModeModel>> getAvailableModes();
 
   Future<MonitoringModeModel> createCustomMode({
@@ -56,6 +61,34 @@ class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
       isSystemDefault: true,
     ),
   ];
+
+  @override
+  Future<void> saveSettings({
+    required String modeId,
+    required int intervalMinutes,
+  }) async {
+    final user = client.auth.currentUser;
+    if (user == null) throw const AuthException('Usuário não autenticado.');
+
+    final now = DateTime.now().toUtc();
+
+    final payload = <String, dynamic>{
+      'user_id': user.id,
+      'interval_minutes': intervalMinutes,
+      'updated_at': now.toIso8601String(),
+    };
+
+    if (!modeId.startsWith('system-default')) {
+      payload['active_mode_id'] = modeId;
+    }
+
+    try {
+      await client.from('monitoring_settings').upsert(payload);
+    } catch (_) {
+      payload.remove('active_mode_id');
+      await client.from('monitoring_settings').upsert(payload);
+    }
+  }
 
   @override
   Future<void> startMonitoring({

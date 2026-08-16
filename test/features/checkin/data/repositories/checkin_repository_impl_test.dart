@@ -51,6 +51,31 @@ void main() {
 
   group('CheckinRepositoryImpl', () {
     test(
+      'saveMonitoringSettings persiste modo e intervalo via datasource',
+      () async {
+        when(
+          () => mockDataSource.saveSettings(
+            modeId: 'mode-1',
+            intervalMinutes: 25,
+          ),
+        ).thenAnswer((_) async {});
+
+        final result = await repository.saveMonitoringSettings(
+          modeId: 'mode-1',
+          intervalMinutes: 25,
+        );
+
+        expect(result, const Right(null));
+        verify(
+          () => mockDataSource.saveSettings(
+            modeId: 'mode-1',
+            intervalMinutes: 25,
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
       'startMonitoring calcula nextDeadline e usa defaultIntervalMinutes do modo quando sem override',
       () async {
         when(

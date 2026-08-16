@@ -25,6 +25,19 @@ class SelectModeRequested extends CheckinEvent {
   List<Object?> get props => [mode];
 }
 
+class SaveMonitoringSettingsRequested extends CheckinEvent {
+  const SaveMonitoringSettingsRequested({
+    required this.modeId,
+    required this.intervalMinutes,
+  });
+
+  final String modeId;
+  final int intervalMinutes;
+
+  @override
+  List<Object?> get props => [modeId, intervalMinutes];
+}
+
 class StartMonitoringRequested extends CheckinEvent {
   const StartMonitoringRequested({
     required this.modeId,

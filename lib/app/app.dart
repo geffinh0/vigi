@@ -13,7 +13,6 @@ import '../features/auth/presentation/bloc/auth_event.dart';
 import '../features/checkin/presentation/bloc/checkin_bloc.dart';
 import '../features/checkin/presentation/bloc/checkin_event.dart';
 import '../features/checkin/presentation/bloc/checkin_state.dart';
-import '../features/checkin/presentation/widgets/mode_picker_sheet.dart';
 import '../features/contacts/presentation/bloc/contacts_bloc.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
 import '../features/panic/presentation/bloc/panic_bloc.dart';
@@ -96,6 +95,14 @@ class GuardiaoHomePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(
+              Icons.settings_outlined,
+              color: AppColors.petroleo,
+            ),
+            tooltip: 'Configurações de Rotina',
+            onPressed: () => context.push('/monitoring-settings'),
+          ),
+          IconButton(
+            icon: const Icon(
               Icons.people_alt_outlined,
               color: AppColors.petroleo,
             ),
@@ -124,7 +131,10 @@ class GuardiaoHomePage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: BlocConsumer<CheckinBloc, CheckinState>(
             listener: (context, state) {
-              if (state is CheckinFailure) {
+              if (state is CheckinAlertActive) {
+                // Redireciona para tela dedicada de alerta sonoro
+                context.push('/checkin-alert');
+              } else if (state is CheckinFailure) {
                 final isContactError = state.message.toLowerCase().contains(
                   'contato',
                 );
@@ -191,7 +201,7 @@ class GuardiaoHomePage extends StatelessWidget {
                   Text(
                     isMonitoring
                         ? 'Confirme sua presença antes do prazo zerar'
-                        : 'Selecione um modo abaixo para iniciar o monitoramento',
+                        : 'Toque abaixo para iniciar seu monitoramento diário',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodyMedium.copyWith(
                       color: AppColors.cinzaTexto,
@@ -248,17 +258,18 @@ class GuardiaoHomePage extends StatelessWidget {
                         );
                       },
                     ),
-                  ] else if (state is CheckinIdle &&
-                      state.availableModes.isNotEmpty) ...[
-                    ModePickerSheet(
-                      modes: state.availableModes,
-                      initialMode: state.selectedMode,
-                      initialIntervalMinutes: state.intervalMinutes,
-                      onStartMonitoring: (mode, interval) {
+                  ] else if (state is CheckinIdle) ...[
+                    AppPrimaryButton(
+                      text:
+                          'Iniciar ${state.selectedMode?.name ?? "Rotina"} (${state.intervalMinutes} min)',
+                      icon: Icons.play_arrow,
+                      onPressed: () {
                         context.read<CheckinBloc>().add(
                           StartMonitoringRequested(
-                            modeId: mode.id,
-                            intervalOverrideMinutes: interval,
+                            modeId:
+                                state.selectedMode?.id ??
+                                'system-default-routine',
+                            intervalOverrideMinutes: state.intervalMinutes,
                           ),
                         );
                       },

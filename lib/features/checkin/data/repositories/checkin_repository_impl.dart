@@ -17,6 +17,26 @@ class CheckinRepositoryImpl implements CheckinRepository {
   final Clock clock;
 
   @override
+  Future<Either<Failure, void>> saveMonitoringSettings({
+    required String modeId,
+    required int intervalMinutes,
+  }) async {
+    try {
+      await remoteDataSource.saveSettings(
+        modeId: modeId,
+        intervalMinutes: intervalMinutes,
+      );
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure('Erro ao salvar configurações: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> startMonitoring({
     required String modeId,
     int? intervalOverrideMinutes,

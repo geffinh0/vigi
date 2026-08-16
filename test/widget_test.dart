@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:guardiao/app/app.dart';
+import 'package:guardiao/core/services/alarm_service.dart';
+import 'package:guardiao/core/services/notification_service.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/utils/clock.dart';
 import 'package:guardiao/core/utils/ticker.dart';
@@ -14,11 +16,13 @@ import 'package:guardiao/features/auth/domain/usecases/sign_out_usecase.dart';
 import 'package:guardiao/features/auth/domain/usecases/sign_up_usecase.dart';
 import 'package:guardiao/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:guardiao/features/checkin/domain/entities/monitoring_mode_entity.dart';
+import 'package:guardiao/features/checkin/domain/entities/monitoring_status_entity.dart';
 import 'package:guardiao/features/checkin/domain/repositories/checkin_repository.dart';
 import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/create_custom_mode_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/stop_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/presentation/bloc/checkin_bloc.dart';
@@ -49,52 +53,66 @@ class MockPanicRepository extends Mock implements PanicRepository {}
 
 class MockFamilyRepository extends Mock implements FamilyRepository {}
 
+class MockAlarmService extends Mock implements AlarmService {}
+
+class MockNotificationService extends Mock implements NotificationService {}
+
 void main() {
-  const tModes = [
-    MonitoringModeEntity(
-      id: '1',
-      name: 'Rotina padrão',
-      iconKey: 'routine',
-      defaultIntervalMinutes: 60,
-      isSystemDefault: true,
-    ),
-    MonitoringModeEntity(
-      id: '2',
-      name: 'Banho',
-      iconKey: 'shower',
-      defaultIntervalMinutes: 20,
-      isSystemDefault: true,
-    ),
-    MonitoringModeEntity(
-      id: '3',
-      name: 'Sono',
-      iconKey: 'sleep',
-      defaultIntervalMinutes: 480,
-      isSystemDefault: true,
-    ),
-  ];
-
   setUpAll(() {
-    if (!sl.isRegistered<Clock>()) {
-      sl.registerSingleton<Clock>(const SystemClock());
-    }
-    if (!sl.isRegistered<Ticker>()) {
-      sl.registerSingleton<Ticker>(const Ticker());
-    }
-
     final authRepo = MockAuthRepository();
+    final checkinRepo = MockCheckinRepository();
+    final contactsRepo = MockContactsRepository();
+    final panicRepo = MockPanicRepository();
+    final familyRepo = MockFamilyRepository();
+    final alarmService = MockAlarmService();
+    final notificationService = MockNotificationService();
+
     when(
       () => authRepo.authStateChanges,
     ).thenAnswer((_) => const Stream.empty());
 
-    final contactsRepo = MockContactsRepository();
-    final checkinRepo = MockCheckinRepository();
-    final panicRepo = MockPanicRepository();
-    final familyRepo = MockFamilyRepository();
-
     when(
       () => checkinRepo.getAvailableModes(),
-    ).thenAnswer((_) async => const Right(tModes));
+    ).thenAnswer(
+      (_) async => const Right([
+        MonitoringModeEntity(
+          id: 'mode-1',
+          name: 'Rotina padrão',
+          iconKey: 'routine',
+          defaultIntervalMinutes: 60,
+          isSystemDefault: true,
+        ),
+      ]),
+    );
+
+    when(
+      () => checkinRepo.getStatus(),
+    ).thenAnswer(
+      (_) async => const Right(
+        MonitoringStatusEntity(
+          active: false,
+          intervalMinutes: 60,
+        ),
+      ),
+    );
+
+    when(() => alarmService.startAlert()).thenAnswer((_) async {});
+    when(() => alarmService.stopAlert()).thenAnswer((_) async {});
+    when(() => notificationService.showTimeoutAlert()).thenAnswer((_) async {});
+    when(() => notificationService.cancelAlert()).thenAnswer((_) async {});
+
+    if (!sl.isRegistered<Clock>()) {
+      sl.registerLazySingleton<Clock>(SystemClock.new);
+    }
+    if (!sl.isRegistered<Ticker>()) {
+      sl.registerLazySingleton<Ticker>(Ticker.new);
+    }
+    if (!sl.isRegistered<AlarmService>()) {
+      sl.registerLazySingleton<AlarmService>(() => alarmService);
+    }
+    if (!sl.isRegistered<NotificationService>()) {
+      sl.registerLazySingleton<NotificationService>(() => notificationService);
+    }
 
     if (!sl.isRegistered<AuthBloc>()) {
       sl.registerFactory(
@@ -119,8 +137,13 @@ void main() {
           getMonitoringStatusUseCase: GetMonitoringStatusUseCase(checkinRepo),
           getAvailableModesUseCase: GetAvailableModesUseCase(checkinRepo),
           createCustomModeUseCase: CreateCustomModeUseCase(checkinRepo),
+          saveMonitoringSettingsUseCase: SaveMonitoringSettingsUseCase(
+            checkinRepo,
+          ),
           ticker: sl(),
           clock: sl(),
+          alarmService: sl(),
+          notificationService: sl(),
         ),
       );
     }
@@ -180,5 +203,6 @@ void main() {
     expect(find.byType(StatusRing), findsOneWidget);
     expect(find.text('Você está protegido pelo Vigi'), findsOneWidget);
     expect(find.text('Abrir Botão de Pânico'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 }

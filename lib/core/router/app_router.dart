@@ -6,6 +6,8 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/checkin/presentation/pages/checkin_alert_page.dart';
+import '../../features/checkin/presentation/pages/monitoring_settings_page.dart';
 import '../../features/contacts/presentation/pages/contacts_page.dart';
 import '../../features/family/presentation/pages/family_panel_page.dart';
 import '../../features/panic/presentation/pages/panic_page.dart';
@@ -55,6 +57,14 @@ GoRouter buildRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/home',
         builder: (context, state) => const GuardiaoHomePage(),
+      ),
+      GoRoute(
+        path: '/monitoring-settings',
+        builder: (context, state) => const MonitoringSettingsPage(),
+      ),
+      GoRoute(
+        path: '/checkin-alert',
+        builder: (context, state) => const CheckinAlertPage(),
       ),
       GoRoute(
         path: '/contacts',

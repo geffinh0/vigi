@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/services/alarm_service.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/ticker.dart';
@@ -9,6 +11,7 @@ import '../../domain/usecases/confirm_checkin_usecase.dart';
 import '../../domain/usecases/create_custom_mode_usecase.dart';
 import '../../domain/usecases/get_available_modes_usecase.dart';
 import '../../domain/usecases/get_monitoring_status_usecase.dart';
+import '../../domain/usecases/save_monitoring_settings_usecase.dart';
 import '../../domain/usecases/start_monitoring_usecase.dart';
 import '../../domain/usecases/stop_monitoring_usecase.dart';
 import 'checkin_event.dart';
@@ -22,12 +25,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required this.getMonitoringStatusUseCase,
     required this.getAvailableModesUseCase,
     required this.createCustomModeUseCase,
+    required this.saveMonitoringSettingsUseCase,
     required this.ticker,
     required this.clock,
+    required this.alarmService,
+    required this.notificationService,
   }) : super(const CheckinInitial()) {
     on<LoadCheckinStatusRequested>(_onLoadCheckinStatusRequested);
     on<LoadAvailableModesRequested>(_onLoadAvailableModesRequested);
     on<SelectModeRequested>(_onSelectModeRequested);
+    on<SaveMonitoringSettingsRequested>(_onSaveMonitoringSettingsRequested);
     on<StartMonitoringRequested>(_onStartMonitoringRequested);
     on<CreateCustomModeRequested>(_onCreateCustomModeRequested);
     on<ConfirmCheckinRequested>(_onConfirmCheckinRequested);
@@ -41,8 +48,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final GetMonitoringStatusUseCase getMonitoringStatusUseCase;
   final GetAvailableModesUseCase getAvailableModesUseCase;
   final CreateCustomModeUseCase createCustomModeUseCase;
+  final SaveMonitoringSettingsUseCase saveMonitoringSettingsUseCase;
   final Ticker ticker;
   final Clock clock;
+  final AlarmService alarmService;
+  final NotificationService notificationService;
 
   StreamSubscription<int>? _tickerSubscription;
   int _currentIntervalMinutes = 60;
@@ -69,9 +79,10 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (status) {
+        // Usa o intervalo salvo como verdade
         _currentIntervalMinutes = status.intervalMinutes;
 
-        // Identifica o modo ativo ou selecionado
+        // Identifica o modo ativo ou selecionado a partir do ID salvo
         if (status.activeMode != null) {
           _activeMode = status.activeMode;
         } else if (status.activeModeId != null) {
@@ -83,8 +94,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         if (status.active && status.nextDeadline != null) {
           _startTicker(status.nextDeadline!, activeMode: _activeMode);
         } else {
-          _selectedMode ??=
+          _selectedMode =
               _activeMode ??
+              _availableModes
+                  .where((m) => m.id == status.activeModeId)
+                  .firstOrNull ??
               _availableModes
                   .where((m) => m.isSystemDefault && m.name == 'Rotina padrão')
                   .firstOrNull ??
@@ -144,6 +158,58 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     }
   }
 
+  Future<void> _onSaveMonitoringSettingsRequested(
+    SaveMonitoringSettingsRequested event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final currentState = state;
+    final modes = _availableModes.isNotEmpty
+        ? _availableModes
+        : (currentState is CheckinIdle
+              ? currentState.availableModes
+              : <MonitoringModeEntity>[]);
+
+    final mode =
+        modes.where((m) => m.id == event.modeId).firstOrNull ??
+        _selectedMode ??
+        (currentState is CheckinIdle ? currentState.selectedMode : null);
+
+    emit(const CheckinLoading());
+
+    final result = await saveMonitoringSettingsUseCase(
+      SaveMonitoringSettingsParams(
+        modeId: event.modeId,
+        intervalMinutes: event.intervalMinutes,
+      ),
+    );
+
+    result.fold(
+      (failure) {
+        emit(CheckinFailure(failure.message));
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: modes,
+            selectedMode: mode,
+          ),
+        );
+      },
+      (_) {
+        _currentIntervalMinutes = event.intervalMinutes;
+        _availableModes = modes;
+        _selectedMode = mode;
+
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: _availableModes,
+            selectedMode: _selectedMode,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _onStartMonitoringRequested(
     StartMonitoringRequested event,
     Emitter<CheckinState> emit,
@@ -180,7 +246,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) {
         emit(CheckinFailure(failure.message));
-        // Restaura para estado Idle para permitir nova tentativa ou cadastro de contato
+        // Restaura para estado Idle
         emit(
           CheckinIdle(
             intervalMinutes: _currentIntervalMinutes,
@@ -248,6 +314,10 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     ConfirmCheckinRequested event,
     Emitter<CheckinState> emit,
   ) async {
+    // Interrompe o alarme se estiver soando
+    unawaited(alarmService.stopAlert());
+    unawaited(notificationService.cancelAlert());
+
     final result = await confirmCheckinUseCase(
       ConfirmCheckinParams(
         latitude: event.latitude,
@@ -270,6 +340,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     Emitter<CheckinState> emit,
   ) async {
     await _tickerSubscription?.cancel();
+    unawaited(alarmService.stopAlert());
+    unawaited(notificationService.cancelAlert());
+
     emit(const CheckinLoading());
     final result = await stopMonitoringUseCase(const NoParams());
     result.fold(
@@ -308,6 +381,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   ) {
     if (event.remainingSeconds <= 0) {
       unawaited(_tickerSubscription?.cancel());
+
+      // Aciona som insistente, vibração contínua e notificação de alta prioridade
+      unawaited(alarmService.startAlert());
+      unawaited(notificationService.showTimeoutAlert());
+
       emit(
         CheckinAlertActive(
           expiredAt: event.nextDeadline,
@@ -343,6 +421,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   @override
   Future<void> close() async {
     await _tickerSubscription?.cancel();
+    unawaited(alarmService.stopAlert());
+    unawaited(notificationService.cancelAlert());
     return super.close();
   }
 }

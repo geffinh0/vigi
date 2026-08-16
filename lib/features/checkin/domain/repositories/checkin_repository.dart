@@ -9,6 +9,11 @@ abstract class CheckinRepository {
     int? intervalOverrideMinutes,
   });
 
+  Future<Either<Failure, void>> saveMonitoringSettings({
+    required String modeId,
+    required int intervalMinutes,
+  });
+
   Future<Either<Failure, List<MonitoringModeEntity>>> getAvailableModes();
 
   Future<Either<Failure, MonitoringModeEntity>> createCustomMode({

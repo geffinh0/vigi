@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/network_info.dart';
 import '../core/network/sync_queue.dart';
+import '../core/services/alarm_service.dart';
+import '../core/services/notification_service.dart';
 import '../core/utils/clock.dart';
 import '../core/utils/ticker.dart';
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
@@ -20,6 +22,7 @@ import '../features/checkin/domain/usecases/confirm_checkin_usecase.dart';
 import '../features/checkin/domain/usecases/create_custom_mode_usecase.dart';
 import '../features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import '../features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
+import '../features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
 import '../features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import '../features/checkin/domain/usecases/stop_monitoring_usecase.dart';
 import '../features/checkin/presentation/bloc/checkin_bloc.dart';
@@ -59,12 +62,18 @@ Future<void> initDependencies() async {
     sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
   }
 
-  // ── Core & Utilities ──────────────────────────────────────────
+  // ── Core & Services ───────────────────────────────────────────
   if (!sl.isRegistered<Clock>()) {
     sl.registerLazySingleton<Clock>(SystemClock.new);
   }
   if (!sl.isRegistered<Ticker>()) {
     sl.registerLazySingleton<Ticker>(Ticker.new);
+  }
+  if (!sl.isRegistered<AlarmService>()) {
+    sl.registerLazySingleton<AlarmService>(AlarmServiceImpl.new);
+  }
+  if (!sl.isRegistered<NotificationService>()) {
+    sl.registerLazySingleton<NotificationService>(NotificationService.new);
   }
 
   // ── Supabase Client (se inicializado) ──────────────────────────
@@ -148,6 +157,7 @@ Future<void> initDependencies() async {
   sl
     ..registerLazySingleton(() => GetAvailableModesUseCase(sl()))
     ..registerLazySingleton(() => CreateCustomModeUseCase(sl()))
+    ..registerLazySingleton(() => SaveMonitoringSettingsUseCase(sl()))
     ..registerLazySingleton(() => StartMonitoringUseCase(sl(), sl()))
     ..registerLazySingleton(() => ConfirmCheckinUseCase(sl()))
     ..registerLazySingleton(() => StopMonitoringUseCase(sl()))
@@ -160,8 +170,11 @@ Future<void> initDependencies() async {
         getMonitoringStatusUseCase: sl(),
         getAvailableModesUseCase: sl(),
         createCustomModeUseCase: sl(),
+        saveMonitoringSettingsUseCase: sl(),
         ticker: sl(),
         clock: sl(),
+        alarmService: sl(),
+        notificationService: sl(),
       ),
     );
 

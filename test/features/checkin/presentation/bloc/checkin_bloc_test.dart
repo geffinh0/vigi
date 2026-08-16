@@ -1,6 +1,8 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:guardiao/core/services/alarm_service.dart';
+import 'package:guardiao/core/services/notification_service.dart';
 import 'package:guardiao/core/usecases/usecase.dart';
 import 'package:guardiao/core/utils/clock.dart';
 import 'package:guardiao/core/utils/ticker.dart';
@@ -10,6 +12,7 @@ import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecas
 import 'package:guardiao/features/checkin/domain/usecases/create_custom_mode_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/stop_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/presentation/bloc/checkin_bloc.dart';
@@ -32,6 +35,13 @@ class MockGetAvailableModesUseCase extends Mock
 
 class MockCreateCustomModeUseCase extends Mock
     implements CreateCustomModeUseCase {}
+
+class MockSaveMonitoringSettingsUseCase extends Mock
+    implements SaveMonitoringSettingsUseCase {}
+
+class MockAlarmService extends Mock implements AlarmService {}
+
+class MockNotificationService extends Mock implements NotificationService {}
 
 class FakeClock implements Clock {
   FakeClock(this._now);
@@ -57,6 +67,9 @@ void main() {
   late MockGetMonitoringStatusUseCase mockGetMonitoringStatusUseCase;
   late MockGetAvailableModesUseCase mockGetAvailableModesUseCase;
   late MockCreateCustomModeUseCase mockCreateCustomModeUseCase;
+  late MockSaveMonitoringSettingsUseCase mockSaveMonitoringSettingsUseCase;
+  late MockAlarmService mockAlarmService;
+  late MockNotificationService mockNotificationService;
   late FakeClock fakeClock;
   const fakeTicker = FakeTicker();
 
@@ -89,6 +102,12 @@ void main() {
       ),
     );
     registerFallbackValue(
+      const SaveMonitoringSettingsParams(
+        modeId: 'mode-routine',
+        intervalMinutes: 35,
+      ),
+    );
+    registerFallbackValue(
       const CreateCustomModeParams(
         name: 'Passeio',
         defaultIntervalMinutes: 30,
@@ -104,7 +123,17 @@ void main() {
     mockGetMonitoringStatusUseCase = MockGetMonitoringStatusUseCase();
     mockGetAvailableModesUseCase = MockGetAvailableModesUseCase();
     mockCreateCustomModeUseCase = MockCreateCustomModeUseCase();
+    mockSaveMonitoringSettingsUseCase = MockSaveMonitoringSettingsUseCase();
+    mockAlarmService = MockAlarmService();
+    mockNotificationService = MockNotificationService();
     fakeClock = FakeClock(baseTime);
+
+    when(() => mockAlarmService.startAlert()).thenAnswer((_) async {});
+    when(() => mockAlarmService.stopAlert()).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.showTimeoutAlert(),
+    ).thenAnswer((_) async {});
+    when(() => mockNotificationService.cancelAlert()).thenAnswer((_) async {});
   });
 
   CheckinBloc buildBloc() => CheckinBloc(
@@ -114,8 +143,11 @@ void main() {
     getMonitoringStatusUseCase: mockGetMonitoringStatusUseCase,
     getAvailableModesUseCase: mockGetAvailableModesUseCase,
     createCustomModeUseCase: mockCreateCustomModeUseCase,
+    saveMonitoringSettingsUseCase: mockSaveMonitoringSettingsUseCase,
     ticker: fakeTicker,
     clock: fakeClock,
+    alarmService: mockAlarmService,
+    notificationService: mockNotificationService,
   );
 
   group('CheckinBloc', () {
@@ -124,7 +156,7 @@ void main() {
     });
 
     blocTest<CheckinBloc, CheckinState>(
-      'carrega modos disponíveis e status idle quando não está monitorando',
+      'carrega configuração persistida (35 min) e não o default estático do modo (60 min)',
       build: () {
         when(
           () => mockGetAvailableModesUseCase(any()),
@@ -133,7 +165,7 @@ void main() {
           (_) async => const Right(
             MonitoringStatusEntity(
               active: false,
-              intervalMinutes: 60,
+              intervalMinutes: 35,
               activeModeId: 'mode-routine',
             ),
           ),
@@ -144,7 +176,7 @@ void main() {
       expect: () => [
         const CheckinLoading(),
         const CheckinIdle(
-          intervalMinutes: 60,
+          intervalMinutes: 35,
           availableModes: tModes,
           selectedMode: tModeRoutine,
         ),
@@ -152,25 +184,7 @@ void main() {
     );
 
     blocTest<CheckinBloc, CheckinState>(
-      'selecionar modo atualiza selectedMode e intervalMinutes no CheckinIdle',
-      build: () => buildBloc(),
-      seed: () => const CheckinIdle(
-        intervalMinutes: 60,
-        availableModes: tModes,
-        selectedMode: tModeRoutine,
-      ),
-      act: (bloc) => bloc.add(const SelectModeRequested(tModeShower)),
-      expect: () => [
-        const CheckinIdle(
-          intervalMinutes: 20,
-          availableModes: tModes,
-          selectedMode: tModeShower,
-        ),
-      ],
-    );
-
-    blocTest<CheckinBloc, CheckinState>(
-      'selecionar Banho e iniciar monitoramento emite sequências de ticks com activeMode até AlertActive',
+      'aciona o AlarmService e NotificationService quando o estado vira CheckinAlertActive',
       build: () {
         when(
           () => mockStartMonitoringUseCase(any()),
@@ -190,33 +204,41 @@ void main() {
       ),
       expect: () => [
         const CheckinLoading(),
-        isA<CheckinMonitoring>().having(
-          (s) => s.activeMode?.name,
-          'activeMode.name',
-          'Banho',
-        ),
         isA<CheckinMonitoring>(),
-        isA<CheckinAlertActive>().having(
-          (s) => s.activeMode?.name,
-          'activeMode.name',
-          'Banho',
-        ),
+        isA<CheckinMonitoring>(),
+        isA<CheckinAlertActive>(),
       ],
+      verify: (_) {
+        verify(() => mockAlarmService.startAlert()).called(1);
+        verify(() => mockNotificationService.showTimeoutAlert()).called(1);
+      },
     );
 
     blocTest<CheckinBloc, CheckinState>(
-      'criar modo customizado adiciona à lista de disponíveis e seleciona-o',
+      'desativa o alarme sonoro e cancela notificação ao confirmar checkin',
       build: () {
-        const createdMode = MonitoringModeEntity(
-          id: 'custom-1',
-          name: 'Caminhada',
-          iconKey: 'walk',
-          defaultIntervalMinutes: 45,
-          isSystemDefault: false,
-        );
         when(
-          () => mockCreateCustomModeUseCase(any()),
-        ).thenAnswer((_) async => const Right(createdMode));
+          () => mockConfirmCheckinUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
+        return buildBloc();
+      },
+      act: (bloc) => bloc.add(const ConfirmCheckinRequested()),
+      verify: (_) {
+        verify(
+          () => mockAlarmService.stopAlert(),
+        ).called(greaterThanOrEqualTo(1));
+        verify(
+          () => mockNotificationService.cancelAlert(),
+        ).called(greaterThanOrEqualTo(1));
+      },
+    );
+
+    blocTest<CheckinBloc, CheckinState>(
+      'salvar configurações atualiza selectedMode e intervalMinutes no CheckinIdle',
+      build: () {
+        when(
+          () => mockSaveMonitoringSettingsUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
         return buildBloc();
       },
       seed: () => const CheckinIdle(
@@ -225,22 +247,18 @@ void main() {
         selectedMode: tModeRoutine,
       ),
       act: (bloc) => bloc.add(
-        const CreateCustomModeRequested(
-          name: 'Caminhada',
-          defaultIntervalMinutes: 45,
-          iconKey: 'walk',
+        const SaveMonitoringSettingsRequested(
+          modeId: 'mode-shower',
+          intervalMinutes: 25,
         ),
       ),
       expect: () => [
         const CheckinLoading(),
-        isA<CheckinIdle>()
-            .having((s) => s.availableModes.length, 'availableModes.length', 3)
-            .having(
-              (s) => s.selectedMode?.name,
-              'selectedMode.name',
-              'Caminhada',
-            )
-            .having((s) => s.intervalMinutes, 'intervalMinutes', 45),
+        const CheckinIdle(
+          intervalMinutes: 25,
+          availableModes: tModes,
+          selectedMode: tModeShower,
+        ),
       ],
     );
   });

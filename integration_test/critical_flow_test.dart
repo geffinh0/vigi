@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:guardiao/app/app.dart';
+import 'package:guardiao/core/services/alarm_service.dart';
+import 'package:guardiao/core/services/notification_service.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/utils/clock.dart';
 import 'package:guardiao/core/utils/ticker.dart';
@@ -20,6 +22,7 @@ import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecas
 import 'package:guardiao/features/checkin/domain/usecases/create_custom_mode_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/stop_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/presentation/bloc/checkin_bloc.dart';
@@ -49,6 +52,10 @@ class MockContactsRepository extends Mock implements ContactsRepository {}
 class MockPanicRepository extends Mock implements PanicRepository {}
 
 class MockFamilyRepository extends Mock implements FamilyRepository {}
+
+class MockAlarmService extends Mock implements AlarmService {}
+
+class MockNotificationService extends Mock implements NotificationService {}
 
 void main() {
   const tModes = [
@@ -104,6 +111,15 @@ void main() {
 
         final panicRepo = MockPanicRepository();
         final familyRepo = MockFamilyRepository();
+        final alarmService = MockAlarmService();
+        final notificationService = MockNotificationService();
+
+        when(() => alarmService.startAlert()).thenAnswer((_) async {});
+        when(() => alarmService.stopAlert()).thenAnswer((_) async {});
+        when(
+          () => notificationService.showTimeoutAlert(),
+        ).thenAnswer((_) async {});
+        when(() => notificationService.cancelAlert()).thenAnswer((_) async {});
 
         final authBloc = AuthBloc(
           signInUseCase: SignInUseCase(authRepo),
@@ -122,8 +138,13 @@ void main() {
           getMonitoringStatusUseCase: GetMonitoringStatusUseCase(checkinRepo),
           getAvailableModesUseCase: GetAvailableModesUseCase(checkinRepo),
           createCustomModeUseCase: CreateCustomModeUseCase(checkinRepo),
+          saveMonitoringSettingsUseCase: SaveMonitoringSettingsUseCase(
+            checkinRepo,
+          ),
           ticker: sl(),
           clock: sl(),
+          alarmService: alarmService,
+          notificationService: notificationService,
         );
 
         final contactsBloc = ContactsBloc(
@@ -166,6 +187,7 @@ void main() {
         expect(find.byType(StatusRing), findsOneWidget);
         expect(find.text('Você está protegido pelo Vigi'), findsOneWidget);
         expect(find.text('Abrir Botão de Pânico'), findsOneWidget);
+        expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
       },
     );
   });

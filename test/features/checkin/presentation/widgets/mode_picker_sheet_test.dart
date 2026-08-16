@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guardiao/core/services/alarm_service.dart';
+import 'package:guardiao/core/services/notification_service.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/utils/clock.dart';
 import 'package:guardiao/core/utils/ticker.dart';
@@ -9,6 +11,7 @@ import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecas
 import 'package:guardiao/features/checkin/domain/usecases/create_custom_mode_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/stop_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/presentation/bloc/checkin_bloc.dart';
@@ -31,6 +34,13 @@ class MockGetAvailableModesUseCase extends Mock
 class MockCreateCustomModeUseCase extends Mock
     implements CreateCustomModeUseCase {}
 
+class MockSaveMonitoringSettingsUseCase extends Mock
+    implements SaveMonitoringSettingsUseCase {}
+
+class MockAlarmService extends Mock implements AlarmService {}
+
+class MockNotificationService extends Mock implements NotificationService {}
+
 void main() {
   late CheckinBloc checkinBloc;
   late MockStartMonitoringUseCase mockStartMonitoringUseCase;
@@ -39,6 +49,9 @@ void main() {
   late MockGetMonitoringStatusUseCase mockGetMonitoringStatusUseCase;
   late MockGetAvailableModesUseCase mockGetAvailableModesUseCase;
   late MockCreateCustomModeUseCase mockCreateCustomModeUseCase;
+  late MockSaveMonitoringSettingsUseCase mockSaveMonitoringSettingsUseCase;
+  late MockAlarmService mockAlarmService;
+  late MockNotificationService mockNotificationService;
 
   const tModes = [
     MonitoringModeEntity(
@@ -71,6 +84,16 @@ void main() {
     mockGetMonitoringStatusUseCase = MockGetMonitoringStatusUseCase();
     mockGetAvailableModesUseCase = MockGetAvailableModesUseCase();
     mockCreateCustomModeUseCase = MockCreateCustomModeUseCase();
+    mockSaveMonitoringSettingsUseCase = MockSaveMonitoringSettingsUseCase();
+    mockAlarmService = MockAlarmService();
+    mockNotificationService = MockNotificationService();
+
+    when(() => mockAlarmService.startAlert()).thenAnswer((_) async {});
+    when(() => mockAlarmService.stopAlert()).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.showTimeoutAlert(),
+    ).thenAnswer((_) async {});
+    when(() => mockNotificationService.cancelAlert()).thenAnswer((_) async {});
 
     checkinBloc = CheckinBloc(
       startMonitoringUseCase: mockStartMonitoringUseCase,
@@ -79,8 +102,11 @@ void main() {
       getMonitoringStatusUseCase: mockGetMonitoringStatusUseCase,
       getAvailableModesUseCase: mockGetAvailableModesUseCase,
       createCustomModeUseCase: mockCreateCustomModeUseCase,
+      saveMonitoringSettingsUseCase: mockSaveMonitoringSettingsUseCase,
       ticker: const Ticker(),
       clock: const SystemClock(),
+      alarmService: mockAlarmService,
+      notificationService: mockNotificationService,
     );
   });
 
