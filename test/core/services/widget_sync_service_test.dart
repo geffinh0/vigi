@@ -31,6 +31,8 @@ void main() {
         minutesRemaining: any(named: 'minutesRemaining'),
         modeName: any(named: 'modeName'),
         isMonitoring: any(named: 'isMonitoring'),
+        timeDisplay: any(named: 'timeDisplay'),
+        statusDisplay: any(named: 'statusDisplay'),
       ),
     ).thenAnswer((_) async {});
   });

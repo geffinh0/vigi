@@ -145,6 +145,8 @@ void main() {
         minutesRemaining: any(named: 'minutesRemaining'),
         modeName: any(named: 'modeName'),
         isMonitoring: any(named: 'isMonitoring'),
+        timeDisplay: any(named: 'timeDisplay'),
+        statusDisplay: any(named: 'statusDisplay'),
       ),
     ).thenAnswer((_) async {});
   });
@@ -246,6 +248,8 @@ void main() {
             minutesRemaining: 0,
             modeName: any(named: 'modeName'),
             isMonitoring: true,
+            timeDisplay: any(named: 'timeDisplay'),
+            statusDisplay: any(named: 'statusDisplay'),
           ),
         ).called(1);
       },

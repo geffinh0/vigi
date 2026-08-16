@@ -89,6 +89,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required String vigiState,
     required int minutesRemaining,
     required bool isMonitoring,
+    String? timeDisplay,
+    String? statusDisplay,
   }) {
     unawaited(
       widgetSyncService.updateWidgetData(
@@ -96,6 +98,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         minutesRemaining: minutesRemaining,
         modeName: _activeMode?.name ?? _selectedMode?.name ?? 'Rotina padrão',
         isMonitoring: isMonitoring,
+        timeDisplay: timeDisplay,
+        statusDisplay: statusDisplay,
       ),
     );
   }
@@ -345,6 +349,13 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         final nextDeadline = clock.now().add(
           Duration(minutes: effectiveInterval),
         );
+        _syncWidget(
+          vigiState: 'normal',
+          minutesRemaining: effectiveInterval,
+          isMonitoring: true,
+          timeDisplay: '$effectiveInterval min',
+          statusDisplay: _activeMode?.name ?? 'Rotina padrão',
+        );
         _startTicker(nextDeadline, activeMode: _activeMode);
       },
     );
@@ -503,6 +514,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         vigiState: 'alerta',
         minutesRemaining: 0,
         isMonitoring: true,
+        timeDisplay: 'Expirado',
+        statusDisplay: 'Alerta: ${event.activeMode?.name ?? "Rotina"}',
       );
 
       emit(
@@ -526,11 +539,24 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       vigiState = VigiState.atento;
     }
 
+    final mins = event.remainingSeconds ~/ 60;
+    final secs = event.remainingSeconds % 60;
+    final String timeDisplay;
+    if (mins > 0 && secs == 0) {
+      timeDisplay = '$mins min';
+    } else if (mins > 0) {
+      timeDisplay = '${mins}m ${secs.toString().padLeft(2, '0')}s';
+    } else {
+      timeDisplay = '${secs}s';
+    }
+
     final remainingMins = (event.remainingSeconds / 60).ceil();
     _syncWidget(
       vigiState: vigiState.name,
       minutesRemaining: remainingMins,
       isMonitoring: true,
+      timeDisplay: timeDisplay,
+      statusDisplay: event.activeMode?.name ?? 'Rotina padrão',
     );
 
     emit(

@@ -7,6 +7,8 @@ abstract class WidgetSyncService {
     required int minutesRemaining,
     required String modeName,
     required bool isMonitoring,
+    String? timeDisplay,
+    String? statusDisplay,
   });
 
   Future<void> saveWidgetData<T>(String key, T? value);
@@ -26,12 +28,24 @@ class WidgetSyncServiceImpl implements WidgetSyncService {
     required int minutesRemaining,
     required String modeName,
     required bool isMonitoring,
+    String? timeDisplay,
+    String? statusDisplay,
   }) async {
     try {
+      final formattedTime =
+          timeDisplay ?? (isMonitoring ? '$minutesRemaining min' : 'Pausado');
+      final formattedStatus =
+          statusDisplay ?? (isMonitoring ? modeName : 'Guardião');
+
       await HomeWidget.saveWidgetData<String>('vigi_state', vigiState);
       await HomeWidget.saveWidgetData<int>(
         'minutes_remaining',
         minutesRemaining,
+      );
+      await HomeWidget.saveWidgetData<String>('time_display', formattedTime);
+      await HomeWidget.saveWidgetData<String>(
+        'status_display',
+        formattedStatus,
       );
       await HomeWidget.saveWidgetData<String>('mode_name', modeName);
       await HomeWidget.saveWidgetData<bool>('is_monitoring', isMonitoring);

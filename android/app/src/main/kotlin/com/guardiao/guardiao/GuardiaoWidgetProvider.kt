@@ -19,17 +19,29 @@ class GuardiaoWidgetProvider : AppWidgetProvider() {
                 val views = RemoteViews(context.packageName, R.layout.guardiao_widget_layout).apply {
                     val widgetData = HomeWidgetPlugin.getData(context)
                     val vigiState = widgetData.getString("vigi_state", "normal") ?: "normal"
-                    val minutesRemaining = widgetData.getInt("minutes_remaining", 60)
                     val isMonitoring = widgetData.getBoolean("is_monitoring", false)
                     val modeName = widgetData.getString("mode_name", "Rotina padrão") ?: "Rotina padrão"
+                    val timeDisplay = widgetData.getString("time_display", "") ?: ""
+                    val statusDisplay = widgetData.getString("status_display", "") ?: ""
 
-                    if (isMonitoring) {
-                        setTextViewText(R.id.widget_status, modeName)
-                        setTextViewText(R.id.widget_time, "$minutesRemaining min")
+                    val finalStatus = if (statusDisplay.isNotEmpty()) {
+                        statusDisplay
+                    } else if (isMonitoring) {
+                        modeName
                     } else {
-                        setTextViewText(R.id.widget_status, "Guardião")
-                        setTextViewText(R.id.widget_time, "Pausado")
+                        "Guardião"
                     }
+
+                    val finalTime = if (timeDisplay.isNotEmpty()) {
+                        timeDisplay
+                    } else if (isMonitoring) {
+                        "60 min"
+                    } else {
+                        "Pausado"
+                    }
+
+                    setTextViewText(R.id.widget_status, finalStatus)
+                    setTextViewText(R.id.widget_time, finalTime)
 
                     when (vigiState.lowercase()) {
                         "alerta" -> setImageViewResource(R.id.widget_icon, R.drawable.ic_vigi_alerta)
