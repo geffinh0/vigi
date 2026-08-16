@@ -49,12 +49,33 @@ class GuardiaoWidgetProvider : AppWidgetProvider() {
                         else -> setImageViewResource(R.id.widget_icon, R.drawable.ic_vigi_normal)
                     }
 
-                    // Configura o PendingIntent do botão "Estou bem" para execução em background
-                    val backgroundIntent = HomeWidgetBackgroundIntent.getBroadcast(
+                    // 1. Botão Principal "Estou bem"
+                    val checkinIntent = HomeWidgetBackgroundIntent.getBroadcast(
                         context,
                         Uri.parse("guardiao://confirmar_checkin")
                     )
-                    setOnClickPendingIntent(R.id.widget_button, backgroundIntent)
+                    setOnClickPendingIntent(R.id.widget_button, checkinIntent)
+
+                    // 2. Botão Rápido "Banho"
+                    val banhoIntent = HomeWidgetBackgroundIntent.getBroadcast(
+                        context,
+                        Uri.parse("guardiao://iniciar_banho")
+                    )
+                    setOnClickPendingIntent(R.id.widget_btn_banho, banhoIntent)
+
+                    // 3. Botão Rápido "Sono"
+                    val sonoIntent = HomeWidgetBackgroundIntent.getBroadcast(
+                        context,
+                        Uri.parse("guardiao://iniciar_sono")
+                    )
+                    setOnClickPendingIntent(R.id.widget_btn_sono, sonoIntent)
+
+                    // 4. Botão de Emergência "SOS / Pânico"
+                    val sosIntent = HomeWidgetBackgroundIntent.getBroadcast(
+                        context,
+                        Uri.parse("guardiao://disparar_panico")
+                    )
+                    setOnClickPendingIntent(R.id.widget_btn_sos, sosIntent)
                 }
 
                 appWidgetManager.updateAppWidget(widgetId, views)

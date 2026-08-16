@@ -6,19 +6,19 @@
     android:background="@drawable/widget_background"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="10dp">
 
+    <!-- Cabeçalho com Mascote Vigi, Modo e Tempo -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <ImageView
             android:id="@+id/widget_icon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:contentDescription="Status do Guardião"
             android:src="@mipmap/ic_launcher" />
 
@@ -35,7 +35,7 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="Guardião Ativo"
+                android:text="Rotina padrão"
                 android:textColor="#5C6B73"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -48,15 +48,16 @@
                 android:maxLines="1"
                 android:text="60 min"
                 android:textColor="#1C3D47"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Botão Principal: Estou Bem -->
     <Button
         android:id="@+id/widget_button"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="40dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/widget_button_bg"
         android:text="Estou bem"
@@ -64,5 +65,54 @@
         android:textColor="#FFFFFF"
         android:textSize="15sp"
         android:textStyle="bold" />
+
+    <!-- Linha de Ações Rápidas: Banho, Sono e SOS -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/widget_btn_banho"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_button_secondary"
+            android:text="Banho"
+            android:textAllCaps="false"
+            android:textColor="#1C3D47"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/widget_btn_sono"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="3dp"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_button_secondary"
+            android:text="Sono"
+            android:textAllCaps="false"
+            android:textColor="#1C3D47"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/widget_btn_sos"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_button_panic"
+            android:text="SOS"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
 
 </LinearLayout>
