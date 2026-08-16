@@ -17,6 +17,8 @@ import '../features/checkin/data/datasources/checkin_remote_datasource.dart';
 import '../features/checkin/data/repositories/checkin_repository_impl.dart';
 import '../features/checkin/domain/repositories/checkin_repository.dart';
 import '../features/checkin/domain/usecases/confirm_checkin_usecase.dart';
+import '../features/checkin/domain/usecases/create_custom_mode_usecase.dart';
+import '../features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import '../features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
 import '../features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import '../features/checkin/domain/usecases/stop_monitoring_usecase.dart';
@@ -144,6 +146,8 @@ Future<void> initDependencies() async {
       );
   }
   sl
+    ..registerLazySingleton(() => GetAvailableModesUseCase(sl()))
+    ..registerLazySingleton(() => CreateCustomModeUseCase(sl()))
     ..registerLazySingleton(() => StartMonitoringUseCase(sl(), sl()))
     ..registerLazySingleton(() => ConfirmCheckinUseCase(sl()))
     ..registerLazySingleton(() => StopMonitoringUseCase(sl()))
@@ -154,6 +158,8 @@ Future<void> initDependencies() async {
         confirmCheckinUseCase: sl(),
         stopMonitoringUseCase: sl(),
         getMonitoringStatusUseCase: sl(),
+        getAvailableModesUseCase: sl(),
+        createCustomModeUseCase: sl(),
         ticker: sl(),
         clock: sl(),
       ),

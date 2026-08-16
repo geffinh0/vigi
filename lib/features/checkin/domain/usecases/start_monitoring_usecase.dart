@@ -6,12 +6,16 @@ import '../../../contacts/domain/repositories/contacts_repository.dart';
 import '../repositories/checkin_repository.dart';
 
 class StartMonitoringParams extends Equatable {
-  const StartMonitoringParams({required this.intervalMinutes});
+  const StartMonitoringParams({
+    required this.modeId,
+    this.intervalOverrideMinutes,
+  });
 
-  final int intervalMinutes;
+  final String modeId;
+  final int? intervalOverrideMinutes;
 
   @override
-  List<Object?> get props => [intervalMinutes];
+  List<Object?> get props => [modeId, intervalOverrideMinutes];
 }
 
 class StartMonitoringUseCase implements UseCase<void, StartMonitoringParams> {
@@ -22,7 +26,13 @@ class StartMonitoringUseCase implements UseCase<void, StartMonitoringParams> {
 
   @override
   Future<Either<Failure, void>> call(StartMonitoringParams params) async {
-    if (params.intervalMinutes <= 0) {
+    if (params.modeId.trim().isEmpty) {
+      return const Left(
+        ValidationFailure('Modo de monitoramento inválido'),
+      );
+    }
+    if (params.intervalOverrideMinutes != null &&
+        params.intervalOverrideMinutes! <= 0) {
       return const Left(
         ValidationFailure('Intervalo deve ser maior que 0 minutos'),
       );
@@ -40,7 +50,8 @@ class StartMonitoringUseCase implements UseCase<void, StartMonitoringParams> {
           );
         }
         return repository.startMonitoring(
-          intervalMinutes: params.intervalMinutes,
+          modeId: params.modeId,
+          intervalOverrideMinutes: params.intervalOverrideMinutes,
         );
       },
     );

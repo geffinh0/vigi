@@ -4,7 +4,10 @@ import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/ticker.dart';
 import '../../../../core/widgets/vigi_mascot.dart';
+import '../../domain/entities/monitoring_mode_entity.dart';
 import '../../domain/usecases/confirm_checkin_usecase.dart';
+import '../../domain/usecases/create_custom_mode_usecase.dart';
+import '../../domain/usecases/get_available_modes_usecase.dart';
 import '../../domain/usecases/get_monitoring_status_usecase.dart';
 import '../../domain/usecases/start_monitoring_usecase.dart';
 import '../../domain/usecases/stop_monitoring_usecase.dart';
@@ -17,11 +20,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required this.confirmCheckinUseCase,
     required this.stopMonitoringUseCase,
     required this.getMonitoringStatusUseCase,
+    required this.getAvailableModesUseCase,
+    required this.createCustomModeUseCase,
     required this.ticker,
     required this.clock,
   }) : super(const CheckinInitial()) {
     on<LoadCheckinStatusRequested>(_onLoadCheckinStatusRequested);
+    on<LoadAvailableModesRequested>(_onLoadAvailableModesRequested);
+    on<SelectModeRequested>(_onSelectModeRequested);
     on<StartMonitoringRequested>(_onStartMonitoringRequested);
+    on<CreateCustomModeRequested>(_onCreateCustomModeRequested);
     on<ConfirmCheckinRequested>(_onConfirmCheckinRequested);
     on<StopMonitoringRequested>(_onStopMonitoringRequested);
     on<CheckinTickReceived>(_onCheckinTickReceived);
@@ -31,47 +39,188 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final ConfirmCheckinUseCase confirmCheckinUseCase;
   final StopMonitoringUseCase stopMonitoringUseCase;
   final GetMonitoringStatusUseCase getMonitoringStatusUseCase;
+  final GetAvailableModesUseCase getAvailableModesUseCase;
+  final CreateCustomModeUseCase createCustomModeUseCase;
   final Ticker ticker;
   final Clock clock;
 
   StreamSubscription<int>? _tickerSubscription;
   int _currentIntervalMinutes = 60;
+  List<MonitoringModeEntity> _availableModes = [];
+  MonitoringModeEntity? _selectedMode;
+  MonitoringModeEntity? _activeMode;
 
   Future<void> _onLoadCheckinStatusRequested(
     LoadCheckinStatusRequested event,
     Emitter<CheckinState> emit,
   ) async {
     emit(const CheckinLoading());
+
+    // Carrega os modos disponíveis primeiro
+    final modesResult = await getAvailableModesUseCase(const NoParams());
+    modesResult.fold(
+      (_) {},
+      (modes) {
+        _availableModes = modes;
+      },
+    );
+
     final result = await getMonitoringStatusUseCase(const NoParams());
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (status) {
         _currentIntervalMinutes = status.intervalMinutes;
+
+        // Identifica o modo ativo ou selecionado
+        if (status.activeMode != null) {
+          _activeMode = status.activeMode;
+        } else if (status.activeModeId != null) {
+          _activeMode = _availableModes
+              .where((m) => m.id == status.activeModeId)
+              .firstOrNull;
+        }
+
         if (status.active && status.nextDeadline != null) {
-          _startTicker(status.nextDeadline!);
+          _startTicker(status.nextDeadline!, activeMode: _activeMode);
         } else {
-          emit(CheckinIdle(intervalMinutes: status.intervalMinutes));
+          _selectedMode ??=
+              _activeMode ??
+              _availableModes
+                  .where((m) => m.isSystemDefault && m.name == 'Rotina padrão')
+                  .firstOrNull ??
+              _availableModes.firstOrNull;
+
+          emit(
+            CheckinIdle(
+              intervalMinutes: _currentIntervalMinutes,
+              availableModes: _availableModes,
+              selectedMode: _selectedMode,
+            ),
+          );
         }
       },
     );
+  }
+
+  Future<void> _onLoadAvailableModesRequested(
+    LoadAvailableModesRequested event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final result = await getAvailableModesUseCase(const NoParams());
+    result.fold(
+      (failure) => emit(CheckinFailure(failure.message)),
+      (modes) {
+        _availableModes = modes;
+        if (state is CheckinIdle) {
+          final current = state as CheckinIdle;
+          emit(
+            current.copyWith(
+              availableModes: _availableModes,
+              selectedMode: current.selectedMode ?? _availableModes.firstOrNull,
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  void _onSelectModeRequested(
+    SelectModeRequested event,
+    Emitter<CheckinState> emit,
+  ) {
+    _selectedMode = event.mode;
+    _currentIntervalMinutes = event.mode.defaultIntervalMinutes;
+    if (state is CheckinIdle) {
+      final current = state as CheckinIdle;
+      if (_availableModes.isEmpty && current.availableModes.isNotEmpty) {
+        _availableModes = current.availableModes;
+      }
+      emit(
+        current.copyWith(
+          selectedMode: _selectedMode,
+          intervalMinutes: _currentIntervalMinutes,
+        ),
+      );
+    }
   }
 
   Future<void> _onStartMonitoringRequested(
     StartMonitoringRequested event,
     Emitter<CheckinState> emit,
   ) async {
+    final currentState = state;
+    final modes = _availableModes.isNotEmpty
+        ? _availableModes
+        : (currentState is CheckinIdle
+              ? currentState.availableModes
+              : <MonitoringModeEntity>[]);
+
+    final mode =
+        modes.where((m) => m.id == event.modeId).firstOrNull ??
+        _selectedMode ??
+        (currentState is CheckinIdle ? currentState.selectedMode : null);
+
     emit(const CheckinLoading());
-    _currentIntervalMinutes = event.intervalMinutes;
+
+    final effectiveInterval =
+        event.intervalOverrideMinutes ??
+        mode?.defaultIntervalMinutes ??
+        _currentIntervalMinutes;
+
+    _currentIntervalMinutes = effectiveInterval;
+    _activeMode = mode;
+
     final result = await startMonitoringUseCase(
-      StartMonitoringParams(intervalMinutes: event.intervalMinutes),
+      StartMonitoringParams(
+        modeId: event.modeId,
+        intervalOverrideMinutes: event.intervalOverrideMinutes,
+      ),
     );
+
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (_) {
         final nextDeadline = clock.now().add(
-          Duration(minutes: event.intervalMinutes),
+          Duration(minutes: effectiveInterval),
         );
-        _startTicker(nextDeadline);
+        _startTicker(nextDeadline, activeMode: _activeMode);
+      },
+    );
+  }
+
+  Future<void> _onCreateCustomModeRequested(
+    CreateCustomModeRequested event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final currentState = state;
+    final currentModes = _availableModes.isNotEmpty
+        ? _availableModes
+        : (currentState is CheckinIdle
+              ? currentState.availableModes
+              : <MonitoringModeEntity>[]);
+
+    emit(const CheckinLoading());
+    final result = await createCustomModeUseCase(
+      CreateCustomModeParams(
+        name: event.name,
+        defaultIntervalMinutes: event.defaultIntervalMinutes,
+        iconKey: event.iconKey,
+      ),
+    );
+
+    result.fold(
+      (failure) => emit(CheckinFailure(failure.message)),
+      (createdMode) {
+        _availableModes = [...currentModes, createdMode];
+        _selectedMode = createdMode;
+        _currentIntervalMinutes = createdMode.defaultIntervalMinutes;
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: _availableModes,
+            selectedMode: _selectedMode,
+          ),
+        );
       },
     );
   }
@@ -92,7 +241,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         final nextDeadline = clock.now().add(
           Duration(minutes: _currentIntervalMinutes),
         );
-        _startTicker(nextDeadline);
+        _startTicker(nextDeadline, activeMode: _activeMode);
       },
     );
   }
@@ -106,11 +255,20 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     final result = await stopMonitoringUseCase(const NoParams());
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
-      (_) => emit(CheckinIdle(intervalMinutes: _currentIntervalMinutes)),
+      (_) {
+        _activeMode = null;
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: _availableModes,
+            selectedMode: _selectedMode,
+          ),
+        );
+      },
     );
   }
 
-  void _startTicker(DateTime deadline) {
+  void _startTicker(DateTime deadline, {MonitoringModeEntity? activeMode}) {
     unawaited(_tickerSubscription?.cancel());
     _tickerSubscription = ticker.secondsUntil(deadline, clock: clock).listen((
       remaining,
@@ -119,6 +277,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         CheckinTickReceived(
           remainingSeconds: remaining,
           nextDeadline: deadline,
+          activeMode: activeMode,
         ),
       );
     });
@@ -130,7 +289,12 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   ) {
     if (event.remainingSeconds <= 0) {
       unawaited(_tickerSubscription?.cancel());
-      emit(CheckinAlertActive(expiredAt: event.nextDeadline));
+      emit(
+        CheckinAlertActive(
+          expiredAt: event.nextDeadline,
+          activeMode: event.activeMode,
+        ),
+      );
       return;
     }
 
@@ -152,6 +316,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         totalSeconds: totalSec,
         nextDeadline: event.nextDeadline,
         vigiState: vigiState,
+        activeMode: event.activeMode,
       ),
     );
   }

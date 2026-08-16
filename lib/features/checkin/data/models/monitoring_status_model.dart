@@ -1,4 +1,5 @@
 import '../../domain/entities/monitoring_status_entity.dart';
+import 'monitoring_mode_model.dart';
 
 class MonitoringStatusModel extends MonitoringStatusEntity {
   const MonitoringStatusModel({
@@ -6,9 +7,19 @@ class MonitoringStatusModel extends MonitoringStatusEntity {
     required super.intervalMinutes,
     super.nextDeadline,
     super.lastPing,
+    super.activeModeId,
+    super.activeMode,
   });
 
   factory MonitoringStatusModel.fromMap(Map<String, dynamic> map) {
+    MonitoringModeModel? mode;
+    if (map['monitoring_modes'] != null &&
+        map['monitoring_modes'] is Map<String, dynamic>) {
+      mode = MonitoringModeModel.fromMap(
+        map['monitoring_modes'] as Map<String, dynamic>,
+      );
+    }
+
     return MonitoringStatusModel(
       active: (map['active'] as bool?) ?? false,
       intervalMinutes: (map['interval_minutes'] as int?) ?? 60,
@@ -18,6 +29,8 @@ class MonitoringStatusModel extends MonitoringStatusEntity {
       lastPing: map['last_ping'] != null
           ? DateTime.tryParse(map['last_ping'] as String)
           : null,
+      activeModeId: map['active_mode_id'] as String?,
+      activeMode: mode,
     );
   }
 
@@ -26,9 +39,9 @@ class MonitoringStatusModel extends MonitoringStatusEntity {
       'user_id': userId,
       'active': active,
       'interval_minutes': intervalMinutes,
-      if (nextDeadline != null)
-        'next_deadline': nextDeadline!.toIso8601String(),
-      if (lastPing != null) 'last_ping': lastPing!.toIso8601String(),
+      'active_mode_id': ?activeModeId,
+      'next_deadline': ?nextDeadline?.toIso8601String(),
+      'last_ping': ?lastPing?.toIso8601String(),
     };
   }
 }

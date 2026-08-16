@@ -13,9 +13,12 @@ import 'package:guardiao/features/auth/domain/usecases/sign_in_usecase.dart';
 import 'package:guardiao/features/auth/domain/usecases/sign_out_usecase.dart';
 import 'package:guardiao/features/auth/domain/usecases/sign_up_usecase.dart';
 import 'package:guardiao/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:guardiao/features/checkin/domain/entities/monitoring_mode_entity.dart';
 import 'package:guardiao/features/checkin/domain/entities/monitoring_status_entity.dart';
 import 'package:guardiao/features/checkin/domain/repositories/checkin_repository.dart';
 import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/create_custom_mode_usecase.dart';
+import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/stop_monitoring_usecase.dart';
@@ -48,6 +51,30 @@ class MockPanicRepository extends Mock implements PanicRepository {}
 class MockFamilyRepository extends Mock implements FamilyRepository {}
 
 void main() {
+  const tModes = [
+    MonitoringModeEntity(
+      id: '1',
+      name: 'Rotina padrão',
+      iconKey: 'routine',
+      defaultIntervalMinutes: 60,
+      isSystemDefault: true,
+    ),
+    MonitoringModeEntity(
+      id: '2',
+      name: 'Banho',
+      iconKey: 'shower',
+      defaultIntervalMinutes: 20,
+      isSystemDefault: true,
+    ),
+    MonitoringModeEntity(
+      id: '3',
+      name: 'Sono',
+      iconKey: 'sleep',
+      defaultIntervalMinutes: 480,
+      isSystemDefault: true,
+    ),
+  ];
+
   group('Critical Flow Test (Foreground E2E)', () {
     testWidgets(
       'Fluxo crítico: inicialização -> tela inicial -> mascote e anel ativos',
@@ -71,6 +98,9 @@ void main() {
             MonitoringStatusEntity(active: false, intervalMinutes: 60),
           ),
         );
+        when(
+          () => checkinRepo.getAvailableModes(),
+        ).thenAnswer((_) async => const Right(tModes));
 
         final panicRepo = MockPanicRepository();
         final familyRepo = MockFamilyRepository();
@@ -90,6 +120,8 @@ void main() {
           confirmCheckinUseCase: ConfirmCheckinUseCase(checkinRepo),
           stopMonitoringUseCase: StopMonitoringUseCase(checkinRepo),
           getMonitoringStatusUseCase: GetMonitoringStatusUseCase(checkinRepo),
+          getAvailableModesUseCase: GetAvailableModesUseCase(checkinRepo),
+          createCustomModeUseCase: CreateCustomModeUseCase(checkinRepo),
           ticker: sl(),
           clock: sl(),
         );
@@ -126,13 +158,14 @@ void main() {
             ),
           ),
         );
+
         await tester.pump();
 
-        // Verifica presença dos elementos visuais da Home
         expect(find.text('Guardião'), findsOneWidget);
         expect(find.byType(VigiMascot), findsOneWidget);
         expect(find.byType(StatusRing), findsOneWidget);
         expect(find.text('Você está protegido pelo Vigi'), findsOneWidget);
+        expect(find.text('Abrir Botão de Pânico'), findsOneWidget);
       },
     );
   });

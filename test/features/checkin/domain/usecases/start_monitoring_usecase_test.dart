@@ -46,17 +46,24 @@ void main() {
         ).thenAnswer((_) async => const Right([tContact]));
         when(
           () => mockCheckinRepository.startMonitoring(
-            intervalMinutes: any(named: 'intervalMinutes'),
+            modeId: any(named: 'modeId'),
+            intervalOverrideMinutes: any(named: 'intervalOverrideMinutes'),
           ),
         ).thenAnswer((_) async => const Right(null));
 
         final result = await useCase(
-          const StartMonitoringParams(intervalMinutes: 60),
+          const StartMonitoringParams(
+            modeId: 'mode-123',
+            intervalOverrideMinutes: 20,
+          ),
         );
 
         expect(result, const Right(null));
         verify(
-          () => mockCheckinRepository.startMonitoring(intervalMinutes: 60),
+          () => mockCheckinRepository.startMonitoring(
+            modeId: 'mode-123',
+            intervalOverrideMinutes: 20,
+          ),
         ).called(1);
       },
     );
@@ -69,7 +76,7 @@ void main() {
         ).thenAnswer((_) async => const Right([]));
 
         final result = await useCase(
-          const StartMonitoringParams(intervalMinutes: 60),
+          const StartMonitoringParams(modeId: 'mode-123'),
         );
 
         expect(result, isA<Left<Failure, void>>());
@@ -79,17 +86,37 @@ void main() {
         );
         verifyNever(
           () => mockCheckinRepository.startMonitoring(
-            intervalMinutes: any(named: 'intervalMinutes'),
+            modeId: any(named: 'modeId'),
+            intervalOverrideMinutes: any(named: 'intervalOverrideMinutes'),
           ),
         );
       },
     );
 
-    test('rejeita intervalo menor ou igual a zero', () async {
+    test('rejeita modeId vazio', () async {
       final result = await useCase(
-        const StartMonitoringParams(intervalMinutes: 0),
+        const StartMonitoringParams(modeId: '   '),
       );
       expect(result, isA<Left<Failure, void>>());
+      result.fold(
+        (failure) => expect(failure.message, 'Modo de monitoramento inválido'),
+        (_) => fail('Deveria ter falhado'),
+      );
+    });
+
+    test('rejeita intervalOverrideMinutes menor ou igual a zero', () async {
+      final result = await useCase(
+        const StartMonitoringParams(
+          modeId: 'mode-123',
+          intervalOverrideMinutes: 0,
+        ),
+      );
+      expect(result, isA<Left<Failure, void>>());
+      result.fold(
+        (failure) =>
+            expect(failure.message, 'Intervalo deve ser maior que 0 minutos'),
+        (_) => fail('Deveria ter falhado'),
+      );
     });
   });
 }

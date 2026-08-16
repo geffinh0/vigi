@@ -13,6 +13,7 @@ import '../features/auth/presentation/bloc/auth_event.dart';
 import '../features/checkin/presentation/bloc/checkin_bloc.dart';
 import '../features/checkin/presentation/bloc/checkin_event.dart';
 import '../features/checkin/presentation/bloc/checkin_state.dart';
+import '../features/checkin/presentation/widgets/mode_picker_sheet.dart';
 import '../features/contacts/presentation/bloc/contacts_bloc.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
 import '../features/panic/presentation/bloc/panic_bloc.dart';
@@ -127,16 +128,21 @@ class GuardiaoHomePage extends StatelessWidget {
               var progress = 0.0;
               var timeLabel = '--:--:--';
               var isMonitoring = false;
+              String? modeTitle;
 
               if (state is CheckinMonitoring) {
                 isMonitoring = true;
                 vigiState = state.vigiState;
                 progress = state.progress;
                 timeLabel = _formatTime(state.remainingSeconds);
+                final modeName = state.activeMode?.name ?? 'Rotina';
+                final modeMin = state.totalSeconds ~/ 60;
+                modeTitle = 'Monitorando: $modeName — $modeMin min';
               } else if (state is CheckinAlertActive) {
                 vigiState = VigiState.alerta;
                 progress = 1.0;
                 timeLabel = 'EXPIRADO';
+                modeTitle = 'Alerta de Check-in Expirado';
               }
 
               return Column(
@@ -152,7 +158,7 @@ class GuardiaoHomePage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     isMonitoring
-                        ? 'Monitoramento Ativo'
+                        ? (modeTitle ?? 'Monitoramento Ativo')
                         : 'Você está protegido pelo Vigi',
                     textAlign: TextAlign.center,
                     style: AppTypography.h2.copyWith(color: AppColors.petroleo),
@@ -161,7 +167,7 @@ class GuardiaoHomePage extends StatelessWidget {
                   Text(
                     isMonitoring
                         ? 'Confirme sua presença antes do prazo zerar'
-                        : 'Inicie sua rotina para ativar a verificação periódica',
+                        : 'Selecione um modo abaixo para iniciar o monitoramento',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodyMedium.copyWith(
                       color: AppColors.cinzaTexto,
@@ -218,13 +224,31 @@ class GuardiaoHomePage extends StatelessWidget {
                         );
                       },
                     ),
+                  ] else if (state is CheckinIdle &&
+                      state.availableModes.isNotEmpty) ...[
+                    ModePickerSheet(
+                      modes: state.availableModes,
+                      initialMode: state.selectedMode,
+                      initialIntervalMinutes: state.intervalMinutes,
+                      onStartMonitoring: (mode, interval) {
+                        context.read<CheckinBloc>().add(
+                          StartMonitoringRequested(
+                            modeId: mode.id,
+                            intervalOverrideMinutes: interval,
+                          ),
+                        );
+                      },
+                    ),
                   ] else ...[
                     AppPrimaryButton(
                       text: 'Iniciar Monitoramento (60 min)',
                       icon: Icons.play_arrow,
                       onPressed: () {
                         context.read<CheckinBloc>().add(
-                          const StartMonitoringRequested(intervalMinutes: 60),
+                          const StartMonitoringRequested(
+                            modeId: 'system-default',
+                            intervalOverrideMinutes: 60,
+                          ),
                         );
                       },
                     ),
