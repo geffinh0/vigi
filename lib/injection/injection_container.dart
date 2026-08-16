@@ -6,6 +6,7 @@ import '../core/network/network_info.dart';
 import '../core/network/sync_queue.dart';
 import '../core/services/alarm_service.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/widget_sync_service.dart';
 import '../core/utils/clock.dart';
 import '../core/utils/ticker.dart';
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
@@ -74,6 +75,9 @@ Future<void> initDependencies() async {
   }
   if (!sl.isRegistered<NotificationService>()) {
     sl.registerLazySingleton<NotificationService>(NotificationService.new);
+  }
+  if (!sl.isRegistered<WidgetSyncService>()) {
+    sl.registerLazySingleton<WidgetSyncService>(WidgetSyncServiceImpl.new);
   }
 
   // ── Supabase Client (se inicializado) ──────────────────────────
@@ -175,6 +179,7 @@ Future<void> initDependencies() async {
         clock: sl(),
         alarmService: sl(),
         notificationService: sl(),
+        widgetSyncService: sl(),
       ),
     );
 

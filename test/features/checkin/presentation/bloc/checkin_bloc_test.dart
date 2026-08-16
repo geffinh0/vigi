@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:guardiao/core/services/alarm_service.dart';
 import 'package:guardiao/core/services/notification_service.dart';
+import 'package:guardiao/core/services/widget_sync_service.dart';
 import 'package:guardiao/core/usecases/usecase.dart';
 import 'package:guardiao/core/utils/clock.dart';
 import 'package:guardiao/core/utils/ticker.dart';
@@ -43,6 +44,8 @@ class MockAlarmService extends Mock implements AlarmService {}
 
 class MockNotificationService extends Mock implements NotificationService {}
 
+class MockWidgetSyncService extends Mock implements WidgetSyncService {}
+
 class FakeClock implements Clock {
   FakeClock(this._now);
   final DateTime _now;
@@ -70,6 +73,7 @@ void main() {
   late MockSaveMonitoringSettingsUseCase mockSaveMonitoringSettingsUseCase;
   late MockAlarmService mockAlarmService;
   late MockNotificationService mockNotificationService;
+  late MockWidgetSyncService mockWidgetSyncService;
   late FakeClock fakeClock;
   const fakeTicker = FakeTicker();
 
@@ -126,12 +130,23 @@ void main() {
     mockSaveMonitoringSettingsUseCase = MockSaveMonitoringSettingsUseCase();
     mockAlarmService = MockAlarmService();
     mockNotificationService = MockNotificationService();
+    mockWidgetSyncService = MockWidgetSyncService();
     fakeClock = FakeClock(baseTime);
 
     when(() => mockAlarmService.startAlert()).thenAnswer((_) async {});
     when(() => mockAlarmService.stopAlert()).thenAnswer((_) async {});
-    when(() => mockNotificationService.showTimeoutAlert()).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.showTimeoutAlert(),
+    ).thenAnswer((_) async {});
     when(() => mockNotificationService.cancelAlert()).thenAnswer((_) async {});
+    when(
+      () => mockWidgetSyncService.updateWidgetData(
+        vigiState: any(named: 'vigiState'),
+        minutesRemaining: any(named: 'minutesRemaining'),
+        modeName: any(named: 'modeName'),
+        isMonitoring: any(named: 'isMonitoring'),
+      ),
+    ).thenAnswer((_) async {});
   });
 
   CheckinBloc buildBloc() => CheckinBloc(
@@ -146,6 +161,7 @@ void main() {
     clock: fakeClock,
     alarmService: mockAlarmService,
     notificationService: mockNotificationService,
+    widgetSyncService: mockWidgetSyncService,
   );
 
   group('CheckinBloc', () {
@@ -197,7 +213,7 @@ void main() {
     );
 
     blocTest<CheckinBloc, CheckinState>(
-      'aciona o AlarmService e NotificationService quando o estado vira CheckinAlertActive',
+      'aciona o AlarmService, NotificationService e WidgetSyncService quando o estado vira CheckinAlertActive',
       build: () {
         when(
           () => mockStartMonitoringUseCase(any()),
@@ -224,6 +240,14 @@ void main() {
       verify: (_) {
         verify(() => mockAlarmService.startAlert()).called(1);
         verify(() => mockNotificationService.showTimeoutAlert()).called(1);
+        verify(
+          () => mockWidgetSyncService.updateWidgetData(
+            vigiState: 'alerta',
+            minutesRemaining: 0,
+            modeName: any(named: 'modeName'),
+            isMonitoring: true,
+          ),
+        ).called(1);
       },
     );
 

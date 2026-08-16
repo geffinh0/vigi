@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/config/app_config.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/widget_background_handler.dart';
 import 'core/utils/logger.dart';
 import 'injection/injection_container.dart' as di;
 
@@ -48,6 +50,13 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
     }
   } catch (e, stack) {
     AppLogger.error('Erro ao inicializar NotificationService: $e', e, stack);
+  }
+
+  // Registra callback interativo para o Widget de Tela Inicial
+  try {
+    await HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
+  } catch (e, stack) {
+    AppLogger.error('Erro ao registrar callback do HomeWidget: $e', e, stack);
   }
 
   runApp(await builder());

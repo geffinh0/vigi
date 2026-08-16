@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/services/alarm_service.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/widget_sync_service.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/ticker.dart';
@@ -30,6 +31,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required this.clock,
     required this.alarmService,
     required this.notificationService,
+    this.widgetSyncService = const WidgetSyncServiceImpl(),
   }) : super(const CheckinInitial()) {
     on<LoadCheckinStatusRequested>(_onLoadCheckinStatusRequested);
     on<LoadAvailableModesRequested>(_onLoadAvailableModesRequested);
@@ -53,6 +55,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final Clock clock;
   final AlarmService alarmService;
   final NotificationService notificationService;
+  final WidgetSyncService widgetSyncService;
 
   StreamSubscription<int>? _tickerSubscription;
   int _currentIntervalMinutes = 60;
@@ -80,6 +83,21 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         nameLower.contains('banho') ||
         mode.iconKey == 'sleep' ||
         nameLower.contains('sono');
+  }
+
+  void _syncWidget({
+    required String vigiState,
+    required int minutesRemaining,
+    required bool isMonitoring,
+  }) {
+    unawaited(
+      widgetSyncService.updateWidgetData(
+        vigiState: vigiState,
+        minutesRemaining: minutesRemaining,
+        modeName: _activeMode?.name ?? _selectedMode?.name ?? 'Rotina padrão',
+        isMonitoring: isMonitoring,
+      ),
+    );
   }
 
   Future<void> _onLoadCheckinStatusRequested(
@@ -136,11 +154,18 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         if (status.active && status.nextDeadline != null) {
           _startTicker(status.nextDeadline!, activeMode: _activeMode);
         } else {
-          _selectedMode = _activeMode ??
+          _selectedMode =
+              _activeMode ??
               _availableModes
                   .where((m) => m.id == status.activeModeId)
                   .firstOrNull ??
               routineMode;
+
+          _syncWidget(
+            vigiState: 'normal',
+            minutesRemaining: _currentIntervalMinutes,
+            isMonitoring: false,
+          );
 
           emit(
             CheckinIdle(
@@ -243,9 +268,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
           return m;
         }).toList();
 
-        final updatedMode = _availableModes
-                .where((m) => m.id == event.modeId)
-                .firstOrNull ??
+        final updatedMode =
+            _availableModes.where((m) => m.id == event.modeId).firstOrNull ??
             mode?.copyWith(defaultIntervalMinutes: event.intervalMinutes);
 
         _selectedMode = updatedMode;
@@ -409,6 +433,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         final nextDeadline = clock.now().add(
           Duration(minutes: _currentIntervalMinutes),
         );
+        _syncWidget(
+          vigiState: 'normal',
+          minutesRemaining: _currentIntervalMinutes,
+          isMonitoring: true,
+        );
         _startTicker(nextDeadline, activeMode: _activeMode);
       },
     );
@@ -428,6 +457,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       (failure) => emit(CheckinFailure(failure.message)),
       (_) {
         _activeMode = null;
+        _syncWidget(
+          vigiState: 'normal',
+          minutesRemaining: _currentIntervalMinutes,
+          isMonitoring: false,
+        );
         emit(
           CheckinIdle(
             intervalMinutes: _currentIntervalMinutes,
@@ -465,6 +499,12 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       unawaited(alarmService.startAlert());
       unawaited(notificationService.showTimeoutAlert());
 
+      _syncWidget(
+        vigiState: 'alerta',
+        minutesRemaining: 0,
+        isMonitoring: true,
+      );
+
       emit(
         CheckinAlertActive(
           expiredAt: event.nextDeadline,
@@ -485,6 +525,13 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     } else {
       vigiState = VigiState.atento;
     }
+
+    final remainingMins = (event.remainingSeconds / 60).ceil();
+    _syncWidget(
+      vigiState: vigiState.name,
+      minutesRemaining: remainingMins,
+      isMonitoring: true,
+    );
 
     emit(
       CheckinMonitoring(
