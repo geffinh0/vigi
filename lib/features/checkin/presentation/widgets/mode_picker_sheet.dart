@@ -176,10 +176,14 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Modos de Monitoramento',
-                style: AppTypography.h3.copyWith(color: AppColors.petroleo),
+              Expanded(
+                child: Text(
+                  'Modos de Monitoramento',
+                  style: AppTypography.h3.copyWith(color: AppColors.petroleo),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => _showCreateModeDialog(context),
                 icon: const Icon(
@@ -238,11 +242,14 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                mode.name,
-                                style: AppTypography.bodyLarge.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.petroleo,
+                              Flexible(
+                                child: Text(
+                                  mode.name,
+                                  style: AppTypography.bodyLarge.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.petroleo,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (mode.isSystemDefault) ...[
@@ -299,13 +306,17 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Ajustar Intervalo',
-                        style: AppTypography.bodyMedium.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.petroleo,
+                      Flexible(
+                        child: Text(
+                          'Ajustar Intervalo',
+                          style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.petroleo,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         _formatInterval(_currentInterval),
                         style: AppTypography.bodyLarge.copyWith(
