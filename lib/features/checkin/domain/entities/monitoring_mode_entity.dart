@@ -15,6 +15,23 @@ class MonitoringModeEntity extends Equatable {
   final int defaultIntervalMinutes;
   final bool isSystemDefault;
 
+  MonitoringModeEntity copyWith({
+    String? id,
+    String? name,
+    String? iconKey,
+    int? defaultIntervalMinutes,
+    bool? isSystemDefault,
+  }) {
+    return MonitoringModeEntity(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      iconKey: iconKey ?? this.iconKey,
+      defaultIntervalMinutes:
+          defaultIntervalMinutes ?? this.defaultIntervalMinutes,
+      isSystemDefault: isSystemDefault ?? this.isSystemDefault,
+    );
+  }
+
   @override
   List<Object?> get props => [
     id,

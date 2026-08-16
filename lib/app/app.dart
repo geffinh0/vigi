@@ -195,6 +195,7 @@ class GuardiaoHomePage extends StatelessWidget {
               var timeLabel = '--:--:--';
               var isMonitoring = false;
               String? modeTitle;
+              var isTemporaryActive = false;
 
               if (state is CheckinMonitoring) {
                 isMonitoring = true;
@@ -204,6 +205,14 @@ class GuardiaoHomePage extends StatelessWidget {
                 final modeName = state.activeMode?.name ?? 'Rotina';
                 final modeMin = state.totalSeconds ~/ 60;
                 modeTitle = 'Monitorando: $modeName — $modeMin min';
+
+                final actKey = state.activeMode?.iconKey;
+                final actName = state.activeMode?.name.toLowerCase() ?? '';
+                isTemporaryActive =
+                    actKey == 'shower' ||
+                    actName.contains('banho') ||
+                    actKey == 'sleep' ||
+                    actName.contains('sono');
               } else if (state is CheckinAlertActive) {
                 vigiState = VigiState.alerta;
                 progress = 1.0;
@@ -232,7 +241,9 @@ class GuardiaoHomePage extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     isMonitoring
-                        ? 'Confirme sua presença antes do prazo zerar'
+                        ? (isTemporaryActive
+                              ? 'Ao confirmar, você retornará automaticamente à Rotina padrão'
+                              : 'Confirme sua presença antes do prazo zerar')
                         : 'Toque abaixo para iniciar seu monitoramento diário',
                     textAlign: TextAlign.center,
                     style: AppTypography.bodyMedium.copyWith(
@@ -271,12 +282,32 @@ class GuardiaoHomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   if (isMonitoring) ...[
-                    AppPrimaryButton(
-                      text: 'Estou Bem (Confirmar Check-in)',
-                      icon: Icons.check_circle_outline,
-                      onPressed: () {
-                        context.read<CheckinBloc>().add(
-                          const ConfirmCheckinRequested(),
+                    Builder(
+                      builder: (context) {
+                        final act = state is CheckinMonitoring
+                            ? state.activeMode
+                            : null;
+                        final isShower = act?.iconKey == 'shower' ||
+                            (act?.name.toLowerCase().contains('banho') ??
+                                false);
+                        final isSleep = act?.iconKey == 'sleep' ||
+                            (act?.name.toLowerCase().contains('sono') ?? false);
+
+                        String confirmText = 'Estou Bem (Confirmar Check-in)';
+                        if (isShower) {
+                          confirmText = 'Terminei o Banho (Estou Bem)';
+                        } else if (isSleep) {
+                          confirmText = 'Acordei (Estou Bem)';
+                        }
+
+                        return AppPrimaryButton(
+                          text: confirmText,
+                          icon: Icons.check_circle_outline,
+                          onPressed: () {
+                            context.read<CheckinBloc>().add(
+                              const ConfirmCheckinRequested(),
+                            );
+                          },
                         );
                       },
                     ),

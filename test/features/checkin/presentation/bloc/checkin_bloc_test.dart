@@ -130,9 +130,7 @@ void main() {
 
     when(() => mockAlarmService.startAlert()).thenAnswer((_) async {});
     when(() => mockAlarmService.stopAlert()).thenAnswer((_) async {});
-    when(
-      () => mockNotificationService.showTimeoutAlert(),
-    ).thenAnswer((_) async {});
+    when(() => mockNotificationService.showTimeoutAlert()).thenAnswer((_) async {});
     when(() => mockNotificationService.cancelAlert()).thenAnswer((_) async {});
   });
 
@@ -177,8 +175,23 @@ void main() {
         const CheckinLoading(),
         const CheckinIdle(
           intervalMinutes: 35,
-          availableModes: tModes,
-          selectedMode: tModeRoutine,
+          availableModes: [
+            MonitoringModeEntity(
+              id: 'mode-routine',
+              name: 'Rotina padrão',
+              iconKey: 'routine',
+              defaultIntervalMinutes: 35,
+              isSystemDefault: true,
+            ),
+            tModeShower,
+          ],
+          selectedMode: MonitoringModeEntity(
+            id: 'mode-routine',
+            name: 'Rotina padrão',
+            iconKey: 'routine',
+            defaultIntervalMinutes: 35,
+            isSystemDefault: true,
+          ),
         ),
       ],
     );
@@ -256,9 +269,63 @@ void main() {
         const CheckinLoading(),
         const CheckinIdle(
           intervalMinutes: 25,
-          availableModes: tModes,
-          selectedMode: tModeShower,
+          availableModes: [
+            tModeRoutine,
+            MonitoringModeEntity(
+              id: 'mode-shower',
+              name: 'Banho',
+              iconKey: 'shower',
+              defaultIntervalMinutes: 25,
+              isSystemDefault: true,
+            ),
+          ],
+          selectedMode: MonitoringModeEntity(
+            id: 'mode-shower',
+            name: 'Banho',
+            iconKey: 'shower',
+            defaultIntervalMinutes: 25,
+            isSystemDefault: true,
+          ),
         ),
+      ],
+    );
+
+    blocTest<CheckinBloc, CheckinState>(
+      'retorna automaticamente para Rotina padrão ao confirmar checkin em modo temporário (Banho)',
+      build: () {
+        when(
+          () => mockStartMonitoringUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => mockConfirmCheckinUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
+        return buildBloc();
+      },
+      seed: () => const CheckinIdle(
+        intervalMinutes: 60,
+        availableModes: tModes,
+        selectedMode: tModeRoutine,
+      ),
+      act: (bloc) async {
+        // Inicia banho
+        bloc.add(
+          const StartMonitoringRequested(
+            modeId: 'mode-shower',
+            intervalOverrideMinutes: 20,
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Termina banho
+        bloc.add(const ConfirmCheckinRequested());
+      },
+      expect: () => [
+        const CheckinLoading(),
+        isA<CheckinMonitoring>(), // Tick do Banho
+        isA<CheckinMonitoring>(), // Tick do Banho
+        isA<CheckinAlertActive>(), // Fim do Banho
+        isA<CheckinMonitoring>(), // Retorno para Rotina padrão
+        isA<CheckinMonitoring>(),
+        isA<CheckinAlertActive>(),
       ],
     );
   });

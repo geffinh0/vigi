@@ -56,9 +56,31 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
 
   StreamSubscription<int>? _tickerSubscription;
   int _currentIntervalMinutes = 60;
+  int _savedRoutineIntervalMinutes = 60;
   List<MonitoringModeEntity> _availableModes = [];
   MonitoringModeEntity? _selectedMode;
   MonitoringModeEntity? _activeMode;
+
+  MonitoringModeEntity? _findRoutineMode(List<MonitoringModeEntity> modes) {
+    return modes
+            .where(
+              (m) =>
+                  m.iconKey == 'routine' ||
+                  m.name.toLowerCase().contains('rotina'),
+            )
+            .firstOrNull ??
+        modes.where((m) => m.isSystemDefault).firstOrNull ??
+        modes.firstOrNull;
+  }
+
+  bool _isTemporaryMode(MonitoringModeEntity? mode) {
+    if (mode == null) return false;
+    final nameLower = mode.name.toLowerCase();
+    return mode.iconKey == 'shower' ||
+        nameLower.contains('banho') ||
+        mode.iconKey == 'sleep' ||
+        nameLower.contains('sono');
+  }
 
   Future<void> _onLoadCheckinStatusRequested(
     LoadCheckinStatusRequested event,
@@ -79,8 +101,28 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (status) {
+        // Atualiza o modo correspondente em _availableModes se houver intervalo salvo
+        if (status.activeModeId != null) {
+          _availableModes = _availableModes.map((m) {
+            if (m.id == status.activeModeId) {
+              return m.copyWith(
+                defaultIntervalMinutes: status.intervalMinutes,
+              );
+            }
+            return m;
+          }).toList();
+        }
+
         // Usa o intervalo salvo como verdade
         _currentIntervalMinutes = status.intervalMinutes;
+
+        final routineMode = _findRoutineMode(_availableModes);
+        if (routineMode != null && status.activeModeId == routineMode.id) {
+          _savedRoutineIntervalMinutes = status.intervalMinutes;
+        } else {
+          _savedRoutineIntervalMinutes =
+              routineMode?.defaultIntervalMinutes ?? 60;
+        }
 
         // Identifica o modo ativo ou selecionado a partir do ID salvo
         if (status.activeMode != null) {
@@ -94,15 +136,11 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         if (status.active && status.nextDeadline != null) {
           _startTicker(status.nextDeadline!, activeMode: _activeMode);
         } else {
-          _selectedMode =
-              _activeMode ??
+          _selectedMode = _activeMode ??
               _availableModes
                   .where((m) => m.id == status.activeModeId)
                   .firstOrNull ??
-              _availableModes
-                  .where((m) => m.isSystemDefault && m.name == 'Rotina padrão')
-                  .firstOrNull ??
-              _availableModes.firstOrNull;
+              routineMode;
 
           emit(
             CheckinIdle(
@@ -196,8 +234,26 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       },
       (_) {
         _currentIntervalMinutes = event.intervalMinutes;
-        _availableModes = modes;
-        _selectedMode = mode;
+
+        // Atualiza a lista de modos com o novo intervalo para o modo configurado
+        _availableModes = modes.map((m) {
+          if (m.id == event.modeId) {
+            return m.copyWith(defaultIntervalMinutes: event.intervalMinutes);
+          }
+          return m;
+        }).toList();
+
+        final updatedMode = _availableModes
+                .where((m) => m.id == event.modeId)
+                .firstOrNull ??
+            mode?.copyWith(defaultIntervalMinutes: event.intervalMinutes);
+
+        _selectedMode = updatedMode;
+
+        final routineMode = _findRoutineMode(_availableModes);
+        if (event.modeId == routineMode?.id) {
+          _savedRoutineIntervalMinutes = event.intervalMinutes;
+        }
 
         emit(
           CheckinIdle(
@@ -215,6 +271,12 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     Emitter<CheckinState> emit,
   ) async {
     final currentState = state;
+    if (_availableModes.isEmpty &&
+        currentState is CheckinIdle &&
+        currentState.availableModes.isNotEmpty) {
+      _availableModes = currentState.availableModes;
+    }
+
     final modes = _availableModes.isNotEmpty
         ? _availableModes
         : (currentState is CheckinIdle
@@ -318,6 +380,13 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
 
+    final currentState = state;
+    if (_availableModes.isEmpty &&
+        currentState is CheckinIdle &&
+        currentState.availableModes.isNotEmpty) {
+      _availableModes = currentState.availableModes;
+    }
+
     final result = await confirmCheckinUseCase(
       ConfirmCheckinParams(
         latitude: event.latitude,
@@ -327,6 +396,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (_) {
+        // Se o usuário estava em modo temporário (Banho ou Sono), ao confirmar presença
+        // retorna automaticamente para o modo de Rotina padrão com seu respectivo intervalo.
+        if (_isTemporaryMode(_activeMode)) {
+          final routineMode = _findRoutineMode(_availableModes);
+          _activeMode = routineMode;
+          _currentIntervalMinutes =
+              routineMode?.defaultIntervalMinutes ??
+              _savedRoutineIntervalMinutes;
+        }
+
         final nextDeadline = clock.now().add(
           Duration(minutes: _currentIntervalMinutes),
         );
