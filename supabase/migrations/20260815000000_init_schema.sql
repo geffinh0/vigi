@@ -19,9 +19,11 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
     for select using (auth.uid() = id);
 
+drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
     for update using (auth.uid() = id);
 
@@ -62,6 +64,7 @@ create table if not exists public.emergency_contacts (
 
 alter table public.emergency_contacts enable row level security;
 
+drop policy if exists "contacts_owner_all" on public.emergency_contacts;
 create policy "contacts_owner_all" on public.emergency_contacts
     for all using (auth.uid() = user_id);
 
@@ -77,6 +80,7 @@ create table if not exists public.family_links (
 
 alter table public.family_links enable row level security;
 
+drop policy if exists "family_links_involved_parties" on public.family_links;
 create policy "family_links_involved_parties" on public.family_links
     for all using (auth.uid() in (monitored_user_id, viewer_user_id));
 
@@ -92,9 +96,11 @@ create table if not exists public.monitoring_settings (
 
 alter table public.monitoring_settings enable row level security;
 
+drop policy if exists "monitoring_owner_all" on public.monitoring_settings;
 create policy "monitoring_owner_all" on public.monitoring_settings
     for all using (auth.uid() = user_id);
 
+drop policy if exists "monitoring_family_read" on public.monitoring_settings;
 create policy "monitoring_family_read" on public.monitoring_settings
     for select using (
         exists (
@@ -117,9 +123,11 @@ create table if not exists public.checkin_events (
 
 alter table public.checkin_events enable row level security;
 
+drop policy if exists "events_owner_all" on public.checkin_events;
 create policy "events_owner_all" on public.checkin_events
     for all using (auth.uid() = user_id);
 
+drop policy if exists "events_family_read" on public.checkin_events;
 create policy "events_family_read" on public.checkin_events
     for select using (
         exists (
@@ -142,6 +150,7 @@ create table if not exists public.device_tokens (
 
 alter table public.device_tokens enable row level security;
 
+drop policy if exists "tokens_owner_all" on public.device_tokens;
 create policy "tokens_owner_all" on public.device_tokens
     for all using (auth.uid() = user_id);
 
