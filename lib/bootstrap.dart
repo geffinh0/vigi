@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/config/app_config.dart';
+import 'core/services/notification_service.dart';
 import 'core/utils/logger.dart';
 import 'injection/injection_container.dart' as di;
 
@@ -39,6 +40,15 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   }
 
   await di.initDependencies();
+
+  // Inicializa serviço de notificações locais e canais
+  try {
+    if (di.sl.isRegistered<NotificationService>()) {
+      await di.sl<NotificationService>().initialize();
+    }
+  } catch (e, stack) {
+    AppLogger.error('Erro ao inicializar NotificationService: $e', e, stack);
+  }
 
   runApp(await builder());
 }

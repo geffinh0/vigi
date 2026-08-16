@@ -49,13 +49,18 @@ class NotificationService {
 
     await _plugin.initialize(initSettings);
 
-    // Criação dos canais no Android
+    // Criação dos canais e solicitação de permissões no Android
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
 
     if (androidPlugin != null) {
+      try {
+        await androidPlugin.requestNotificationsPermission();
+        await androidPlugin.requestExactAlarmsPermission();
+      } catch (_) {}
+
       await androidPlugin.createNotificationChannel(
         const AndroidNotificationChannel(
           channelIdLembrete,
@@ -79,22 +84,26 @@ class NotificationService {
   }
 
   Future<void> showTimeoutAlert({
-    String title = 'Alerta: Check-in Expirado!',
+    String title = 'ALERTA: CHECK-IN EXPIRADO!',
     String body =
-        'Você não confirmou seu check-in a tempo. Abra o app agora para desativar o alerta.',
+        'Você não confirmou sua presença a tempo. Abra o Guardião para desativar o alarme.',
   }) async {
     const androidDetails = AndroidNotificationDetails(
       channelIdAlerta,
       channelNameAlerta,
       channelDescription: channelDescAlerta,
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
       category: AndroidNotificationCategory.alarm,
+      icon: '@mipmap/ic_launcher',
       fullScreenIntent: true,
       enableVibration: true,
       playSound: true,
       ongoing: true,
       autoCancel: false,
+      visibility: NotificationVisibility.public,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      ticker: 'Alerta de Check-in Expirado',
     );
 
     const notificationDetails = NotificationDetails(
@@ -107,15 +116,41 @@ class NotificationService {
       ),
     );
 
-    await _plugin.show(
-      notificationIdAlerta,
-      title,
-      body,
-      notificationDetails,
-    );
+    try {
+      await _plugin.show(
+        notificationIdAlerta,
+        title,
+        body,
+        notificationDetails,
+      );
+    } catch (_) {
+      // Fallback sem ícone explícito se o resource loader variar
+      const fallbackAndroidDetails = AndroidNotificationDetails(
+        channelIdAlerta,
+        channelNameAlerta,
+        channelDescription: channelDescAlerta,
+        importance: Importance.max,
+        priority: Priority.max,
+        category: AndroidNotificationCategory.alarm,
+        fullScreenIntent: true,
+        enableVibration: true,
+        playSound: true,
+        ongoing: true,
+        autoCancel: false,
+        visibility: NotificationVisibility.public,
+      );
+      await _plugin.show(
+        notificationIdAlerta,
+        title,
+        body,
+        const NotificationDetails(android: fallbackAndroidDetails),
+      );
+    }
   }
 
   Future<void> cancelAlert() async {
-    await _plugin.cancel(notificationIdAlerta);
+    try {
+      await _plugin.cancel(notificationIdAlerta);
+    } catch (_) {}
   }
 }
