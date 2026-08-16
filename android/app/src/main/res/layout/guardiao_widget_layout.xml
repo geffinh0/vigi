@@ -54,14 +54,16 @@
     </LinearLayout>
 
     <!-- Botão Principal: Estou Bem -->
-    <Button
+    <TextView
         android:id="@+id/widget_button"
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/widget_button_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
         android:text="Estou bem"
-        android:textAllCaps="false"
         android:textColor="#FFFFFF"
         android:textSize="15sp"
         android:textStyle="bold" />
@@ -73,20 +75,22 @@
         android:layout_marginTop="6dp"
         android:orientation="horizontal">
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_banho"
             android:layout_width="0dp"
             android:layout_height="34dp"
             android:layout_marginEnd="3dp"
             android:layout_weight="1"
             android:background="@drawable/widget_button_secondary"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
             android:text="Banho"
-            android:textAllCaps="false"
             android:textColor="#1C3D47"
             android:textSize="12sp"
             android:textStyle="bold" />
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_sono"
             android:layout_width="0dp"
             android:layout_height="34dp"
@@ -94,21 +98,25 @@
             android:layout_marginStart="3dp"
             android:layout_weight="1"
             android:background="@drawable/widget_button_secondary"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
             android:text="Sono"
-            android:textAllCaps="false"
             android:textColor="#1C3D47"
             android:textSize="12sp"
             android:textStyle="bold" />
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_sos"
             android:layout_width="0dp"
             android:layout_height="34dp"
             android:layout_marginStart="3dp"
             android:layout_weight="1"
             android:background="@drawable/widget_button_panic"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
             android:text="SOS"
-            android:textAllCaps="false"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:textStyle="bold" />

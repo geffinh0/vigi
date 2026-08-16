@@ -19,6 +19,10 @@ import '../features/family/presentation/bloc/family_bloc.dart';
 import '../features/panic/presentation/bloc/panic_bloc.dart';
 import '../injection/injection_container.dart';
 
+import 'dart:async';
+import 'package:home_widget/home_widget.dart';
+import '../features/panic/presentation/bloc/panic_event.dart';
+
 class GuardiaoApp extends StatefulWidget {
   const GuardiaoApp({super.key, this.router});
 
@@ -35,6 +39,7 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
   late final PanicBloc _panicBloc;
   late final FamilyBloc _familyBloc;
   late final GoRouter _router;
+  StreamSubscription<Uri?>? _widgetClickSubscription;
 
   @override
   void initState() {
@@ -45,10 +50,73 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
     _panicBloc = sl<PanicBloc>();
     _familyBloc = sl<FamilyBloc>();
     _router = widget.router ?? buildRouter(_authBloc);
+
+    _setupWidgetClickListener();
+  }
+
+  void _setupWidgetClickListener() {
+    try {
+      HomeWidget.initiallyLaunchedFromHomeWidget().then(_handleWidgetUri);
+      _widgetClickSubscription = HomeWidget.widgetClicked.listen(
+        _handleWidgetUri,
+      );
+    } catch (_) {}
+  }
+
+  void _handleWidgetUri(Uri? uri) {
+    if (uri == null) return;
+    final uriString = uri.toString().toLowerCase();
+
+    if (uri.host == 'confirmar_checkin' ||
+        uriString.contains('confirmar_checkin')) {
+      _checkinBloc.add(const ConfirmCheckinRequested());
+    } else if (uri.host == 'iniciar_banho' ||
+        uriString.contains('iniciar_banho')) {
+      final state = _checkinBloc.state;
+      final modes = state is CheckinIdle
+          ? state.availableModes
+          : <MonitoringModeEntity>[];
+      final showerMode = modes
+          .where(
+            (m) =>
+                m.iconKey == 'shower' || m.name.toLowerCase().contains('banho'),
+          )
+          .firstOrNull;
+      final interval = showerMode?.defaultIntervalMinutes ?? 20;
+      _checkinBloc.add(
+        StartMonitoringRequested(
+          modeId: showerMode?.id ?? 'mode-shower',
+          intervalOverrideMinutes: interval,
+        ),
+      );
+    } else if (uri.host == 'iniciar_sono' ||
+        uriString.contains('iniciar_sono')) {
+      final state = _checkinBloc.state;
+      final modes = state is CheckinIdle
+          ? state.availableModes
+          : <MonitoringModeEntity>[];
+      final sleepMode = modes
+          .where(
+            (m) =>
+                m.iconKey == 'sleep' || m.name.toLowerCase().contains('sono'),
+          )
+          .firstOrNull;
+      final interval = sleepMode?.defaultIntervalMinutes ?? 480;
+      _checkinBloc.add(
+        StartMonitoringRequested(
+          modeId: sleepMode?.id ?? 'mode-sleep',
+          intervalOverrideMinutes: interval,
+        ),
+      );
+    } else if (uri.host == 'disparar_panico' ||
+        uriString.contains('disparar_panico')) {
+      _panicBloc.add(const PanicTriggered());
+    }
   }
 
   @override
   void dispose() {
+    _widgetClickSubscription?.cancel();
     _authBloc.close();
     _checkinBloc.close();
     _contactsBloc.close();
@@ -287,10 +355,12 @@ class GuardiaoHomePage extends StatelessWidget {
                         final act = state is CheckinMonitoring
                             ? state.activeMode
                             : null;
-                        final isShower = act?.iconKey == 'shower' ||
+                        final isShower =
+                            act?.iconKey == 'shower' ||
                             (act?.name.toLowerCase().contains('banho') ??
                                 false);
-                        final isSleep = act?.iconKey == 'sleep' ||
+                        final isSleep =
+                            act?.iconKey == 'sleep' ||
                             (act?.name.toLowerCase().contains('sono') ?? false);
 
                         String confirmText = 'Estou Bem (Confirmar Check-in)';
