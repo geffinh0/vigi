@@ -52,7 +52,9 @@ void main() {
     expect(find.text('Entrar'), findsOneWidget);
   });
 
-  testWidgets('mostra SnackBar quando AuthBloc emite AuthFailure', (tester) async {
+  testWidgets('mostra SnackBar quando AuthBloc emite AuthFailure', (
+    tester,
+  ) async {
     final stateController = StreamController<AuthState>.broadcast();
     when(() => mockAuthBloc.state).thenReturn(const AuthInitial());
     when(() => mockAuthBloc.stream).thenAnswer((_) => stateController.stream);
