@@ -107,10 +107,10 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
                     ),
                   ),
                   Slider(
-                    value: interval.toDouble(),
-                    min: 5,
+                    value: interval.toDouble().clamp(1.0, 720.0),
+                    min: 1,
                     max: 720,
-                    divisions: 143,
+                    divisions: 719,
                     activeColor: AppColors.petroleo,
                     inactiveColor: AppColors.linhoEscuro,
                     onChanged: (val) {
@@ -328,10 +328,10 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
                   ),
                   const SizedBox(height: 8),
                   Slider(
-                    value: _currentInterval.toDouble().clamp(5.0, 720.0),
-                    min: 5,
+                    value: _currentInterval.toDouble().clamp(1.0, 720.0),
+                    min: 1,
                     max: 720,
-                    divisions: 143,
+                    divisions: 719,
                     activeColor: AppColors.petroleo,
                     inactiveColor: AppColors.linhoEscuro,
                     onChanged: (val) {
@@ -343,7 +343,7 @@ class _ModePickerSheetState extends State<ModePickerSheet> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('5 min', style: AppTypography.caption),
+                      Text('1 min', style: AppTypography.caption),
                       Text('12 horas', style: AppTypography.caption),
                     ],
                   ),
