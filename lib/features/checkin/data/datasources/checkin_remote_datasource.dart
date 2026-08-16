@@ -33,6 +33,30 @@ class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
 
   final SupabaseClient client;
 
+  static const List<MonitoringModeModel> _defaultSystemModes = [
+    MonitoringModeModel(
+      id: 'system-default-routine',
+      name: 'Rotina padrão',
+      iconKey: 'routine',
+      defaultIntervalMinutes: 60,
+      isSystemDefault: true,
+    ),
+    MonitoringModeModel(
+      id: 'system-default-shower',
+      name: 'Banho',
+      iconKey: 'shower',
+      defaultIntervalMinutes: 20,
+      isSystemDefault: true,
+    ),
+    MonitoringModeModel(
+      id: 'system-default-sleep',
+      name: 'Sono',
+      iconKey: 'sleep',
+      defaultIntervalMinutes: 480,
+      isSystemDefault: true,
+    ),
+  ];
+
   @override
   Future<void> startMonitoring({
     required String modeId,
@@ -44,34 +68,55 @@ class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
 
     final now = DateTime.now().toUtc();
 
-    await client.from('monitoring_settings').upsert({
+    final payload = <String, dynamic>{
       'user_id': user.id,
-      'active_mode_id': modeId,
       'interval_minutes': intervalMinutes,
       'active': true,
       'next_deadline': nextDeadline.toUtc().toIso8601String(),
       'last_ping': now.toIso8601String(),
       'updated_at': now.toIso8601String(),
-    });
+    };
 
-    await client.from('checkin_events').insert({
-      'user_id': user.id,
-      'event_type': 'routine_start',
-      'created_at': now.toIso8601String(),
-    });
+    if (!modeId.startsWith('system-default')) {
+      payload['active_mode_id'] = modeId;
+    }
+
+    try {
+      await client.from('monitoring_settings').upsert(payload);
+    } catch (_) {
+      // Se a coluna active_mode_id ainda não existir no banco remoto
+      payload.remove('active_mode_id');
+      await client.from('monitoring_settings').upsert(payload);
+    }
+
+    try {
+      await client.from('checkin_events').insert({
+        'user_id': user.id,
+        'event_type': 'routine_start',
+        'created_at': now.toIso8601String(),
+      });
+    } catch (_) {}
   }
 
   @override
   Future<List<MonitoringModeModel>> getAvailableModes() async {
-    final response = await client
-        .from('monitoring_modes')
-        .select()
-        .order('is_system_default', ascending: false)
-        .order('created_at', ascending: true);
+    try {
+      final response = await client
+          .from('monitoring_modes')
+          .select()
+          .order('is_system_default', ascending: false)
+          .order('created_at', ascending: true);
 
-    return (response as List)
-        .map((e) => MonitoringModeModel.fromMap(e as Map<String, dynamic>))
-        .toList();
+      final list = (response as List)
+          .map((e) => MonitoringModeModel.fromMap(e as Map<String, dynamic>))
+          .toList();
+
+      if (list.isNotEmpty) return list;
+    } catch (_) {
+      // Fallback para os modos do sistema se a tabela ainda não estiver populada
+    }
+
+    return _defaultSystemModes;
   }
 
   @override
@@ -146,16 +191,30 @@ class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
     final user = client.auth.currentUser;
     if (user == null) throw const AuthException('Usuário não autenticado.');
 
-    final response = await client
-        .from('monitoring_settings')
-        .select('*, monitoring_modes(*)')
-        .eq('user_id', user.id)
-        .maybeSingle();
+    Map<String, dynamic>? response;
+    try {
+      response = await client
+          .from('monitoring_settings')
+          .select('*, monitoring_modes(*)')
+          .eq('user_id', user.id)
+          .maybeSingle();
+    } catch (_) {
+      try {
+        response = await client
+            .from('monitoring_settings')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+      } catch (_) {
+        response = null;
+      }
+    }
 
     if (response == null) {
       return const MonitoringStatusModel(
         active: false,
         intervalMinutes: 60,
+        activeModeId: 'system-default-routine',
       );
     }
 

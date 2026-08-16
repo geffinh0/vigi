@@ -178,7 +178,17 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     );
 
     result.fold(
-      (failure) => emit(CheckinFailure(failure.message)),
+      (failure) {
+        emit(CheckinFailure(failure.message));
+        // Restaura para estado Idle para permitir nova tentativa ou cadastro de contato
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: modes,
+            selectedMode: mode,
+          ),
+        );
+      },
       (_) {
         final nextDeadline = clock.now().add(
           Duration(minutes: effectiveInterval),
@@ -209,7 +219,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     );
 
     result.fold(
-      (failure) => emit(CheckinFailure(failure.message)),
+      (failure) {
+        emit(CheckinFailure(failure.message));
+        emit(
+          CheckinIdle(
+            intervalMinutes: _currentIntervalMinutes,
+            availableModes: currentModes,
+            selectedMode: _selectedMode,
+          ),
+        );
+      },
       (createdMode) {
         _availableModes = [...currentModes, createdMode];
         _selectedMode = createdMode;

@@ -122,7 +122,31 @@ class GuardiaoHomePage extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: BlocBuilder<CheckinBloc, CheckinState>(
+          child: BlocConsumer<CheckinBloc, CheckinState>(
+            listener: (context, state) {
+              if (state is CheckinFailure) {
+                final isContactError = state.message.toLowerCase().contains(
+                  'contato',
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      state.message,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    backgroundColor: AppColors.petroleo,
+                    behavior: SnackBarBehavior.floating,
+                    action: isContactError
+                        ? SnackBarAction(
+                            label: 'Cadastrar',
+                            textColor: AppColors.ambar,
+                            onPressed: () => context.push('/contacts'),
+                          )
+                        : null,
+                  ),
+                );
+              }
+            },
             builder: (context, state) {
               var vigiState = VigiState.normal;
               var progress = 0.0;
@@ -239,6 +263,15 @@ class GuardiaoHomePage extends StatelessWidget {
                         );
                       },
                     ),
+                  ] else if (state is CheckinLoading) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.petroleo,
+                        ),
+                      ),
+                    ),
                   ] else ...[
                     AppPrimaryButton(
                       text: 'Iniciar Monitoramento (60 min)',
@@ -246,7 +279,7 @@ class GuardiaoHomePage extends StatelessWidget {
                       onPressed: () {
                         context.read<CheckinBloc>().add(
                           const StartMonitoringRequested(
-                            modeId: 'system-default',
+                            modeId: 'system-default-routine',
                             intervalOverrideMinutes: 60,
                           ),
                         );
