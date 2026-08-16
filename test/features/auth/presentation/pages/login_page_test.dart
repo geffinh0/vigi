@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -51,17 +52,10 @@ void main() {
     expect(find.text('Entrar'), findsOneWidget);
   });
 
-  testWidgets('mostra SnackBar quando AuthBloc emite AuthFailure', (
-    tester,
-  ) async {
+  testWidgets('mostra SnackBar quando AuthBloc emite AuthFailure', (tester) async {
+    final stateController = StreamController<AuthState>.broadcast();
     when(() => mockAuthBloc.state).thenReturn(const AuthInitial());
-    whenListen(
-      mockAuthBloc,
-      Stream.fromIterable([
-        const AuthFailure('Credenciais incorretas'),
-      ]),
-      initialState: const AuthInitial(),
-    );
+    when(() => mockAuthBloc.stream).thenAnswer((_) => stateController.stream);
 
     await tester.pumpWidget(
       makeTestableWidget(
@@ -71,6 +65,11 @@ void main() {
     );
     await tester.pump();
 
+    stateController.add(const AuthFailure('Credenciais incorretas'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 750));
+
     expect(find.text('Credenciais incorretas'), findsOneWidget);
+    await stateController.close();
   });
 }
