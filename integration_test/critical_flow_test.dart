@@ -186,6 +186,8 @@ void main() {
         expect(find.byType(VigiMascot), findsOneWidget);
         expect(find.byType(StatusRing), findsOneWidget);
         expect(find.text('Você está protegido pelo Vigi'), findsOneWidget);
+        expect(find.textContaining('Vou tomar banho'), findsOneWidget);
+        expect(find.textContaining('Vou dormir'), findsOneWidget);
         expect(find.text('Abrir Botão de Pânico'), findsOneWidget);
         expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
       },

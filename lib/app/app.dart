@@ -10,6 +10,7 @@ import '../core/widgets/status_ring.dart';
 import '../core/widgets/vigi_mascot.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/bloc/auth_event.dart';
+import '../features/checkin/domain/entities/monitoring_mode_entity.dart';
 import '../features/checkin/presentation/bloc/checkin_bloc.dart';
 import '../features/checkin/presentation/bloc/checkin_event.dart';
 import '../features/checkin/presentation/bloc/checkin_state.dart';
@@ -84,6 +85,37 @@ class GuardiaoHomePage extends StatelessWidget {
     final minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     return '$hours:$minutes:$seconds';
+  }
+
+  Widget _buildQuickModeButton({
+    required BuildContext context,
+    required String title,
+    required String timeLabel,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          side: const BorderSide(color: AppColors.petroleo, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+        ),
+        icon: Icon(icon, color: AppColors.petroleo, size: 20),
+        label: Text(
+          '$title\n($timeLabel)',
+          textAlign: TextAlign.center,
+          style: AppTypography.bodySmall.copyWith(
+            color: AppColors.petroleo,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        onPressed: onTap,
+      ),
+    );
   }
 
   @override
@@ -274,6 +306,86 @@ class GuardiaoHomePage extends StatelessWidget {
                         );
                       },
                     ),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final modes = state.availableModes;
+                        final showerMode =
+                            modes
+                                .where(
+                                  (m) =>
+                                      m.iconKey == 'shower' ||
+                                      m.name.toLowerCase().contains('banho'),
+                                )
+                                .firstOrNull ??
+                            const MonitoringModeEntity(
+                              id: 'system-default-shower',
+                              name: 'Banho',
+                              iconKey: 'shower',
+                              defaultIntervalMinutes: 20,
+                              isSystemDefault: true,
+                            );
+
+                        final sleepMode =
+                            modes
+                                .where(
+                                  (m) =>
+                                      m.iconKey == 'sleep' ||
+                                      m.name.toLowerCase().contains('sono'),
+                                )
+                                .firstOrNull ??
+                            const MonitoringModeEntity(
+                              id: 'system-default-sleep',
+                              name: 'Sono',
+                              iconKey: 'sleep',
+                              defaultIntervalMinutes: 480,
+                              isSystemDefault: true,
+                            );
+
+                        final showerTimeStr =
+                            '${showerMode.defaultIntervalMinutes} min';
+                        final sleepTimeStr =
+                            sleepMode.defaultIntervalMinutes % 60 == 0
+                            ? '${sleepMode.defaultIntervalMinutes ~/ 60}h'
+                            : '${sleepMode.defaultIntervalMinutes} min';
+
+                        return Row(
+                          children: [
+                            _buildQuickModeButton(
+                              context: context,
+                              title: 'Vou tomar banho',
+                              timeLabel: showerTimeStr,
+                              icon: Icons.shower,
+                              onTap: () {
+                                context.read<CheckinBloc>().add(
+                                  StartMonitoringRequested(
+                                    modeId: showerMode.id,
+                                    intervalOverrideMinutes:
+                                        showerMode.defaultIntervalMinutes,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            _buildQuickModeButton(
+                              context: context,
+                              title: 'Vou dormir',
+                              timeLabel: sleepTimeStr,
+                              icon: Icons.bedtime,
+                              onTap: () {
+                                context.read<CheckinBloc>().add(
+                                  StartMonitoringRequested(
+                                    modeId: sleepMode.id,
+                                    intervalOverrideMinutes:
+                                        sleepMode.defaultIntervalMinutes,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ] else if (state is CheckinLoading) ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
@@ -295,6 +407,40 @@ class GuardiaoHomePage extends StatelessWidget {
                           ),
                         );
                       },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildQuickModeButton(
+                          context: context,
+                          title: 'Vou tomar banho',
+                          timeLabel: '20 min',
+                          icon: Icons.shower,
+                          onTap: () {
+                            context.read<CheckinBloc>().add(
+                              const StartMonitoringRequested(
+                                modeId: 'system-default-shower',
+                                intervalOverrideMinutes: 20,
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        _buildQuickModeButton(
+                          context: context,
+                          title: 'Vou dormir',
+                          timeLabel: '8h',
+                          icon: Icons.bedtime,
+                          onTap: () {
+                            context.read<CheckinBloc>().add(
+                              const StartMonitoringRequested(
+                                modeId: 'system-default-sleep',
+                                intervalOverrideMinutes: 480,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                   const SizedBox(height: 24),

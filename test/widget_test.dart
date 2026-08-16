@@ -82,6 +82,20 @@ void main() {
           defaultIntervalMinutes: 60,
           isSystemDefault: true,
         ),
+        MonitoringModeEntity(
+          id: 'mode-2',
+          name: 'Banho',
+          iconKey: 'shower',
+          defaultIntervalMinutes: 20,
+          isSystemDefault: true,
+        ),
+        MonitoringModeEntity(
+          id: 'mode-3',
+          name: 'Sono',
+          iconKey: 'sleep',
+          defaultIntervalMinutes: 480,
+          isSystemDefault: true,
+        ),
       ]),
     );
 
@@ -202,6 +216,8 @@ void main() {
     expect(find.byType(VigiMascot), findsOneWidget);
     expect(find.byType(StatusRing), findsOneWidget);
     expect(find.text('Você está protegido pelo Vigi'), findsOneWidget);
+    expect(find.textContaining('Vou tomar banho'), findsOneWidget);
+    expect(find.textContaining('Vou dormir'), findsOneWidget);
     expect(find.text('Abrir Botão de Pânico'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
