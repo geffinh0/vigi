@@ -140,6 +140,21 @@ void main() {
     ).thenAnswer((_) async {});
     when(() => mockNotificationService.cancelAlert()).thenAnswer((_) async {});
     when(
+      () => mockNotificationService.scheduleTimeoutAlarm(any()),
+    ).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.cancelScheduledAlarm(),
+    ).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.showMonitoringOngoing(
+        modeName: any(named: 'modeName'),
+        nextDeadline: any(named: 'nextDeadline'),
+      ),
+    ).thenAnswer((_) async {});
+    when(
+      () => mockNotificationService.cancelMonitoringOngoing(),
+    ).thenAnswer((_) async {});
+    when(
       () => mockWidgetSyncService.updateWidgetData(
         vigiState: any(named: 'vigiState'),
         minutesRemaining: any(named: 'minutesRemaining'),

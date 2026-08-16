@@ -29,6 +29,7 @@ dependencies:
   
   # Notifications (ADR-001 - Canal 1 e Canal 2)
   flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
   firebase_core: ^3.12.1
   firebase_messaging: ^15.2.4
   

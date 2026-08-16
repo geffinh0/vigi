@@ -114,6 +114,21 @@ void main() {
     when(() => alarmService.stopAlert()).thenAnswer((_) async {});
     when(() => notificationService.showTimeoutAlert()).thenAnswer((_) async {});
     when(() => notificationService.cancelAlert()).thenAnswer((_) async {});
+    when(
+      () => notificationService.scheduleTimeoutAlarm(any()),
+    ).thenAnswer((_) async {});
+    when(
+      () => notificationService.cancelScheduledAlarm(),
+    ).thenAnswer((_) async {});
+    when(
+      () => notificationService.showMonitoringOngoing(
+        modeName: any(named: 'modeName'),
+        nextDeadline: any(named: 'nextDeadline'),
+      ),
+    ).thenAnswer((_) async {});
+    when(
+      () => notificationService.cancelMonitoringOngoing(),
+    ).thenAnswer((_) async {});
 
     if (!sl.isRegistered<Clock>()) {
       sl.registerLazySingleton<Clock>(SystemClock.new);

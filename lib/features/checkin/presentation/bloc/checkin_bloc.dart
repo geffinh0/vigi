@@ -468,6 +468,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       (failure) => emit(CheckinFailure(failure.message)),
       (_) {
         _activeMode = null;
+        unawaited(notificationService.cancelScheduledAlarm());
+        unawaited(notificationService.cancelMonitoringOngoing());
         _syncWidget(
           vigiState: 'normal',
           minutesRemaining: _currentIntervalMinutes,
@@ -486,6 +488,18 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
 
   void _startTicker(DateTime deadline, {MonitoringModeEntity? activeMode}) {
     unawaited(_tickerSubscription?.cancel());
+
+    // Agenda alarme de hardware exato (AlarmManager) para acordar o celular mesmo com app fechado
+    unawaited(notificationService.scheduleTimeoutAlarm(deadline));
+
+    // Exibe notificação persistente de monitoramento em segundo plano (Ongoing)
+    unawaited(
+      notificationService.showMonitoringOngoing(
+        modeName: activeMode?.name ?? 'Rotina padrão',
+        nextDeadline: deadline,
+      ),
+    );
+
     _tickerSubscription = ticker.secondsUntil(deadline, clock: clock).listen((
       remaining,
     ) {
@@ -505,6 +519,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   ) {
     if (event.remainingSeconds <= 0) {
       unawaited(_tickerSubscription?.cancel());
+      unawaited(notificationService.cancelMonitoringOngoing());
 
       // Aciona som insistente, vibração contínua e notificação de alta prioridade
       unawaited(alarmService.startAlert());
@@ -575,6 +590,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     await _tickerSubscription?.cancel();
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
+    unawaited(notificationService.cancelScheduledAlarm());
+    unawaited(notificationService.cancelMonitoringOngoing());
     return super.close();
   }
 }
