@@ -28,6 +28,11 @@ void main() {
       expect(normalizePhone('011987654321'), '+5511987654321');
     });
 
+    test('número de Portugal com código do país ganha o +', () {
+      expect(normalizePhone('351920354190'), '+351920354190');
+      expect(normalizePhone('+351 920 354 190'), '+351920354190');
+    });
+
     test('aceita 55 sem o +', () {
       expect(normalizePhone('5511987654321'), '+5511987654321');
     });

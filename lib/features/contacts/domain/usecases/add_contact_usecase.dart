@@ -38,18 +38,22 @@ class AddContactUseCase
     }
 
     final digits = params.phone.replaceAll(RegExp(r'\D'), '');
-    // Validação de telefone brasileiro (DDD + 8 ou 9 dígitos: 10 ou 11 dígitos, ou 12-13 com código 55)
+    final trimmed = params.phone.trim();
+    final hasCountryPrefix =
+        trimmed.startsWith('+') || trimmed.startsWith('00');
+    // Brasil: DDD + 8/9 dígitos (10-11) ou com o 55 (12-13).
+    // Internacional: com "+"/"00" ou já com o código do país (ex.: +351 Portugal).
     final isValidBrPhone =
-        (digits.length == 10 || digits.length == 11) ||
-        (digits.length >= 12 &&
-            digits.startsWith('55') &&
-            (digits.length == 12 || digits.length == 13));
+        digits.length == 10 ||
+        digits.length == 11 ||
+        (digits.length >= 12 && digits.length <= 15) ||
+        (hasCountryPrefix && digits.length >= 8 && digits.length <= 15);
 
     if (!isValidBrPhone) {
       return Future.value(
         const Left(
           ValidationFailure(
-            'Telefone inválido. Informe o DDD e o número completo.',
+            'Telefone inválido. Informe o DDD (ou o código do país) e o número completo.',
           ),
         ),
       );

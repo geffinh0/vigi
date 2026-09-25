@@ -44,8 +44,10 @@ String normalizePhone(String raw) {
   if (p.startsWith('+')) return p;
   if (p.startsWith('00')) return '+${p.substring(2)}';
   p = p.replaceFirst(RegExp('^0+'), '');
+  // Brasil sem o código do país (DDD + número)
   if (p.length == 10 || p.length == 11) return '+55$p';
-  if ((p.length == 12 || p.length == 13) && p.startsWith('55')) return '+$p';
+  // Já contém o código do país (ex.: 5511..., 351920...)
+  if (p.length >= 12) return '+$p';
   return p;
 }
 

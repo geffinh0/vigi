@@ -72,6 +72,22 @@ void main() {
       },
     );
 
+    test('aceita telefone internacional (Portugal)', () async {
+      when(
+        () => mockRepository.addContact(
+          name: any(named: 'name'),
+          phone: any(named: 'phone'),
+          relationship: any(named: 'relationship'),
+        ),
+      ).thenAnswer((_) async => const Right(tContact));
+
+      final result = await useCase(
+        const AddContactParams(name: 'Carla', phone: '+351 920 354 190'),
+      );
+
+      expect(result.isRight(), isTrue);
+    });
+
     test('rejeita nome vazio', () async {
       const invalidParams = AddContactParams(
         name: '   ',
