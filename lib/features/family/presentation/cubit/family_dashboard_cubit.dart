@@ -34,6 +34,7 @@ class MonitoredPersonView extends Equatable {
   List<Object?> get props => [link, status, modeName, recentEvents];
 }
 
+/// Estado do painel da família.
 class FamilyDashboardState extends Equatable {
   const FamilyDashboardState({
     this.loading = true,

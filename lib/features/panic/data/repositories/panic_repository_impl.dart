@@ -5,6 +5,7 @@ import '../../domain/entities/panic_alert_entity.dart';
 import '../../domain/repositories/panic_repository.dart';
 import '../datasources/panic_remote_datasource.dart';
 
+/// Converte exceções do Supabase em [Failure].
 class PanicRepositoryImpl implements PanicRepository {
   PanicRepositoryImpl(this.remoteDataSource);
 

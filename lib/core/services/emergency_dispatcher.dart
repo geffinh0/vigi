@@ -5,6 +5,7 @@ import '../../features/contacts/domain/repositories/contacts_repository.dart';
 import '../utils/location_helper.dart';
 import '../utils/logger.dart';
 
+/// Motivo do disparo de emergência.
 enum EmergencyReason { panic, checkinTimeout }
 
 /// Resultado do disparo, usado para dar feedback honesto ao usuário.
@@ -51,6 +52,7 @@ String normalizePhone(String raw) {
   return p;
 }
 
+/// Dispara SMS nativo (canal `guardiao/emergency_sms`), registra o alerta e aciona o push FCM aos familiares.
 class EmergencyDispatcherImpl implements EmergencyDispatcher {
   EmergencyDispatcherImpl({
     required this.contactsRepository,

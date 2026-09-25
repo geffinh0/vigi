@@ -10,6 +10,7 @@ import '../../domain/usecases/respond_family_link_usecase.dart';
 import 'family_event.dart';
 import 'family_state.dart';
 
+/// Tela "Família" do idoso: código VIGI, pedidos pendentes (Permitir/Recusar) e quem o acompanha.
 class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
   FamilyBloc({
     required this.getFamilyLinksUseCase,

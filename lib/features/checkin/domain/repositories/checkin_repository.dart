@@ -3,6 +3,7 @@ import '../../../../core/errors/failures.dart';
 import '../entities/monitoring_mode_entity.dart';
 import '../entities/monitoring_status_entity.dart';
 
+/// Contrato do dead man's switch: iniciar, confirmar, pausar e consultar o monitoramento.
 abstract class CheckinRepository {
   Future<Either<Failure, void>> startMonitoring({
     required String modeId,

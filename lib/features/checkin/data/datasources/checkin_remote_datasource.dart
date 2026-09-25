@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/monitoring_mode_model.dart';
 import '../models/monitoring_status_model.dart';
 
+/// Acesso às tabelas `monitoring_settings`, `monitoring_modes` e `checkin_events`.
 abstract class CheckinRemoteDataSource {
   Future<void> startMonitoring({
     required String modeId,
@@ -33,6 +34,7 @@ abstract class CheckinRemoteDataSource {
   Future<MonitoringStatusModel> getStatus();
 }
 
+/// Implementação de [CheckinRemoteDataSource] com Supabase.
 class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
   CheckinRemoteDataSourceImpl(this.client);
 

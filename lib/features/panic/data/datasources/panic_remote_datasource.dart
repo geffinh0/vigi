@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/panic_alert_model.dart';
 
+/// Registra pânico e resolução em `checkin_events`.
 abstract class PanicRemoteDataSource {
   Future<PanicAlertModel> triggerPanic({
     double? latitude,
@@ -10,6 +11,7 @@ abstract class PanicRemoteDataSource {
   Future<void> resolvePanic();
 }
 
+/// Implementação de [PanicRemoteDataSource] com Supabase.
 class PanicRemoteDataSourceImpl implements PanicRemoteDataSource {
   PanicRemoteDataSourceImpl(this.client);
 

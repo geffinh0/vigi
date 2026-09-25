@@ -3,6 +3,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Pausa o monitoramento.
 class StopMonitoringUseCase implements UseCase<void, NoParams> {
   StopMonitoringUseCase(this.repository);
 

@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+/// Modo de monitoramento com seu intervalo padrão de check-in.
 class MonitoringModeEntity extends Equatable {
   const MonitoringModeEntity({
     required this.id,

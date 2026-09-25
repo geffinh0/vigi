@@ -4,6 +4,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/family_repository.dart';
 
+/// Pedido a responder e a decisão.
 class RespondFamilyLinkParams extends Equatable {
   const RespondFamilyLinkParams({required this.linkId, required this.accept});
 

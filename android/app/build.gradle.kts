@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -43,4 +42,13 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+// Push FCM: o google-services.json (Firebase) não é versionado. Sem ele o app
+// compila normalmente e apenas o push aos familiares fica desativado
+// (o PushService ignora a falha de inicialização do Firebase).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.warn("VIGI: android/app/google-services.json ausente — push FCM desativado neste build.")
 }

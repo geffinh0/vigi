@@ -10,6 +10,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
+/// Tela de login (reutilizada pelo app do idoso e pelo VIGI Família).
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,

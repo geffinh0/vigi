@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/widgets/vigi_mascot.dart';
 import '../../domain/entities/monitoring_mode_entity.dart';
 
+/// Estados do `CheckinBloc`.
 abstract class CheckinState extends Equatable {
   const CheckinState();
 
@@ -9,14 +10,17 @@ abstract class CheckinState extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Estado antes do carregamento.
 class CheckinInitial extends CheckinState {
   const CheckinInitial();
 }
 
+/// Operação em andamento.
 class CheckinLoading extends CheckinState {
   const CheckinLoading();
 }
 
+/// Monitoramento parado, com os modos disponíveis.
 class CheckinIdle extends CheckinState {
   const CheckinIdle({
     this.intervalMinutes = 60,
@@ -44,6 +48,7 @@ class CheckinIdle extends CheckinState {
   List<Object?> get props => [intervalMinutes, availableModes, selectedMode];
 }
 
+/// Monitoramento ativo com o tempo restante.
 class CheckinMonitoring extends CheckinState {
   const CheckinMonitoring({
     required this.remainingSeconds,
@@ -72,6 +77,7 @@ class CheckinMonitoring extends CheckinState {
   ];
 }
 
+/// Prazo vencido: alarme tocando; após a tolerância, contatos avisados.
 class CheckinAlertActive extends CheckinState {
   const CheckinAlertActive({
     required this.expiredAt,
@@ -103,6 +109,7 @@ class CheckinAlertActive extends CheckinState {
   ];
 }
 
+/// Erro exibido ao usuário.
 class CheckinFailure extends CheckinState {
   const CheckinFailure(this.message);
 

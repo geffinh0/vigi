@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/family_link_entity.dart';
 
+/// Estados do `FamilyBloc`.
 abstract class FamilyState extends Equatable {
   const FamilyState();
 
@@ -8,14 +9,17 @@ abstract class FamilyState extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Estado antes do carregamento.
 class FamilyInitial extends FamilyState {
   const FamilyInitial();
 }
 
+/// Carregando.
 class FamilyLoading extends FamilyState {
   const FamilyLoading();
 }
 
+/// Vínculos e código carregados.
 class FamilyLoaded extends FamilyState {
   const FamilyLoaded(this.links, {this.myCode, this.myUserId});
 
@@ -42,6 +46,7 @@ class FamilyLoaded extends FamilyState {
   List<Object?> get props => [links, myCode, myUserId];
 }
 
+/// Erro exibido ao usuário.
 class FamilyFailure extends FamilyState {
   const FamilyFailure(this.message);
 

@@ -24,6 +24,7 @@ import 'dart:async';
 import 'package:home_widget/home_widget.dart';
 import '../features/panic/presentation/bloc/panic_event.dart';
 
+/// Raiz do app do idoso: cria os BLoCs, o roteador e trata os toques no widget da tela inicial.
 class GuardiaoApp extends StatefulWidget {
   const GuardiaoApp({super.key, this.router});
 
@@ -160,6 +161,7 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
   }
 }
 
+/// Tela inicial do idoso: estado do monitoramento, contagem regressiva, "Estou bem", modos rápidos (banho/sono) e acesso ao pânico.
 class GuardiaoHomePage extends StatelessWidget {
   const GuardiaoHomePage({super.key});
 

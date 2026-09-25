@@ -3,6 +3,7 @@ import '../../../panic/data/models/panic_alert_model.dart';
 import '../models/family_link_model.dart';
 import '../models/monitoring_snapshot_model.dart';
 
+/// Vínculos familiares (RPCs com consentimento) e streams em tempo real do bem-estar.
 abstract class FamilyRemoteDataSource {
   Future<List<FamilyLinkModel>> getFamilyLinks();
 
@@ -28,6 +29,7 @@ abstract class FamilyRemoteDataSource {
   Future<Map<String, String>> getModeNames();
 }
 
+/// Implementação de [FamilyRemoteDataSource] com Supabase (RPC + Realtime).
 class FamilyRemoteDataSourceImpl implements FamilyRemoteDataSource {
   FamilyRemoteDataSourceImpl(this.client);
 

@@ -4,6 +4,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/contacts_repository.dart';
 
+/// Contato a remover.
 class DeleteContactParams extends Equatable {
   const DeleteContactParams(this.contactId);
 
@@ -13,6 +14,7 @@ class DeleteContactParams extends Equatable {
   List<Object?> get props => [contactId];
 }
 
+/// Remove um contato de emergência.
 class DeleteContactUseCase implements UseCase<void, DeleteContactParams> {
   DeleteContactUseCase(this.repository);
 

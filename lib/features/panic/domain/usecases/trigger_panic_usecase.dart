@@ -6,6 +6,7 @@ import '../../../../core/utils/location_helper.dart';
 import '../entities/panic_alert_entity.dart';
 import '../repositories/panic_repository.dart';
 
+/// Localização opcional (obtida automaticamente se ausente).
 class TriggerPanicParams extends Equatable {
   const TriggerPanicParams({this.latitude, this.longitude});
 
@@ -16,6 +17,7 @@ class TriggerPanicParams extends Equatable {
   List<Object?> get props => [latitude, longitude];
 }
 
+/// Registra o pânico com a localização atual.
 class TriggerPanicUseCase
     implements UseCase<PanicAlertEntity, TriggerPanicParams> {
   TriggerPanicUseCase(this.repository);

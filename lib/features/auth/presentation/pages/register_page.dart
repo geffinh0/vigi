@@ -9,6 +9,7 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
+/// Tela de cadastro de conta.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 

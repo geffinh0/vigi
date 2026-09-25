@@ -9,6 +9,7 @@ import '../bloc/checkin_bloc.dart';
 import '../bloc/checkin_event.dart';
 import '../bloc/checkin_state.dart';
 
+/// Folha inferior para escolher ou criar um modo.
 class ModePickerSheet extends StatefulWidget {
   const ModePickerSheet({
     super.key,

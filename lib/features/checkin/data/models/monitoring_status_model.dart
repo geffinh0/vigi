@@ -1,6 +1,7 @@
 import '../../domain/entities/monitoring_status_entity.dart';
 import 'monitoring_mode_model.dart';
 
+/// Modelo do estado do monitoramento lido de `monitoring_settings`.
 class MonitoringStatusModel extends MonitoringStatusEntity {
   const MonitoringStatusModel({
     required super.active,

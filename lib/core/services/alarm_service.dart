@@ -3,12 +3,14 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 
+/// Alarme local de check-in expirado: som contínuo e vibração.
 abstract class AlarmService {
   Future<void> startAlert();
   Future<void> stopAlert();
   bool get isAlerting;
 }
 
+/// Implementação de [AlarmService] com audioplayers (canal de alarme do Android) e vibration.
 class AlarmServiceImpl implements AlarmService {
   AlarmServiceImpl({AudioPlayer? audioPlayer})
     : _audioPlayer = audioPlayer ?? AudioPlayer();

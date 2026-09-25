@@ -5,6 +5,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/user_entity.dart';
 import '../repositories/auth_repository.dart';
 
+/// Dados do cadastro (nome e telefone vão para o perfil).
 class SignUpParams extends Equatable {
   const SignUpParams({
     required this.email,
@@ -22,6 +23,7 @@ class SignUpParams extends Equatable {
   List<Object?> get props => [email, password, fullName, phone];
 }
 
+/// Cria a conta (o perfil e as configurações são criados por gatilho no banco).
 class SignUpUseCase implements UseCase<UserEntity, SignUpParams> {
   SignUpUseCase(this.repository);
 

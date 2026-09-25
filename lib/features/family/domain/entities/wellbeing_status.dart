@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import '../../../panic/domain/entities/panic_alert_entity.dart';
 import 'monitoring_snapshot_entity.dart';
 
+/// Situação exibida à família.
 enum WellbeingLevel {
   /// Monitoramento ativo e dentro do prazo.
   ok,

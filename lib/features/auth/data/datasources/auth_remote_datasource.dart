@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/user_entity.dart';
 import '../models/user_model.dart';
 
+/// Acesso ao Supabase Auth (login, cadastro, sessão).
 abstract class AuthRemoteDataSource {
   Future<UserModel> signIn({
     required String email,
@@ -22,6 +23,7 @@ abstract class AuthRemoteDataSource {
   Stream<UserEntity?> get authStateChanges;
 }
 
+/// Implementação de [AuthRemoteDataSource] com supabase_flutter.
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl(this.client);
 

@@ -4,6 +4,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/emergency_contact_entity.dart';
 import '../repositories/contacts_repository.dart';
 
+/// Lista os contatos de emergência do usuário.
 class GetContactsUseCase
     implements UseCase<List<EmergencyContactEntity>, NoParams> {
   GetContactsUseCase(this.repository);

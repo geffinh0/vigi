@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+/// Vínculo entre quem é acompanhado (monitored) e quem acompanha (viewer).
 class FamilyLinkEntity extends Equatable {
   const FamilyLinkEntity({
     required this.id,

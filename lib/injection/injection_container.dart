@@ -3,7 +3,6 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/network_info.dart';
-import '../core/network/sync_queue.dart';
 import '../core/services/alarm_service.dart';
 import '../core/services/emergency_dispatcher.dart';
 import '../core/services/notification_service.dart';
@@ -94,15 +93,7 @@ Future<void> initDependencies() async {
   }
 
   if (client != null && !sl.isRegistered<SupabaseClient>()) {
-    sl
-      ..registerLazySingleton<SupabaseClient>(() => client!)
-      ..registerLazySingleton<SyncQueue>(
-        () => SyncQueue(
-          prefs: sl(),
-          networkInfo: sl(),
-          supabaseClient: sl(),
-        ),
-      );
+    sl.registerLazySingleton<SupabaseClient>(() => client!);
   }
 
   // ── Auth Feature ───────────────────────────────────────────────

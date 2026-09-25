@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+/// Eventos do `ContactsBloc`.
 abstract class ContactsEvent extends Equatable {
   const ContactsEvent();
 
@@ -7,10 +8,12 @@ abstract class ContactsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Carrega os contatos.
 class LoadContactsRequested extends ContactsEvent {
   const LoadContactsRequested();
 }
 
+/// Cadastra um contato.
 class AddContactRequested extends ContactsEvent {
   const AddContactRequested({
     required this.name,
@@ -26,6 +29,7 @@ class AddContactRequested extends ContactsEvent {
   List<Object?> get props => [name, phone, relationship];
 }
 
+/// Remove um contato.
 class DeleteContactRequested extends ContactsEvent {
   const DeleteContactRequested(this.contactId);
 

@@ -1,5 +1,6 @@
 import '../../domain/entities/emergency_contact_entity.dart';
 
+/// Modelo de `emergency_contacts`.
 class EmergencyContactModel extends EmergencyContactEntity {
   const EmergencyContactModel({
     required super.id,

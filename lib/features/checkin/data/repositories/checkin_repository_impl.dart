@@ -7,6 +7,7 @@ import '../../domain/entities/monitoring_status_entity.dart';
 import '../../domain/repositories/checkin_repository.dart';
 import '../datasources/checkin_remote_datasource.dart';
 
+/// Calcula os prazos (next_deadline) e converte exceções em [Failure].
 class CheckinRepositoryImpl implements CheckinRepository {
   CheckinRepositoryImpl({
     required this.remoteDataSource,

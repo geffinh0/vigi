@@ -1,3 +1,4 @@
+/// Configuração do app. Os valores podem ser sobrescritos com `--dart-define` (não há arquivo .env).
 abstract class AppConfig {
   static const String appName = 'VIGI';
 

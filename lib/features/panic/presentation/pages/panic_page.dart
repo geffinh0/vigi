@@ -10,6 +10,7 @@ import '../bloc/panic_event.dart';
 import '../bloc/panic_state.dart';
 import '../widgets/panic_button.dart';
 
+/// Botão de pânico (segurar 3 s) e status do alerta.
 class PanicPage extends StatelessWidget {
   const PanicPage({super.key});
 

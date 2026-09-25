@@ -5,6 +5,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/monitoring_mode_entity.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Nome e intervalo de um modo personalizado.
 class CreateCustomModeParams extends Equatable {
   const CreateCustomModeParams({
     required this.name,
@@ -20,6 +21,7 @@ class CreateCustomModeParams extends Equatable {
   List<Object?> get props => [name, defaultIntervalMinutes, iconKey];
 }
 
+/// Cria um modo de monitoramento personalizado.
 class CreateCustomModeUseCase
     implements UseCase<MonitoringModeEntity, CreateCustomModeParams> {
   CreateCustomModeUseCase(this.repository);

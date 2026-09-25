@@ -6,6 +6,7 @@ import '../../domain/usecases/get_contacts_usecase.dart';
 import 'contacts_event.dart';
 import 'contacts_state.dart';
 
+/// Estado da tela de contatos de emergência.
 class ContactsBloc extends Bloc<ContactsEvent, ContactsState> {
   ContactsBloc({
     required this.getContactsUseCase,

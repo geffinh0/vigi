@@ -9,6 +9,7 @@ import '../../domain/usecases/sign_up_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
+/// Estado de autenticação do app; também reage às mudanças de sessão do Supabase (token renovado, logout).
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({
     required this.signInUseCase,

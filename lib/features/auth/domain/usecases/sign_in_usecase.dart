@@ -5,6 +5,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/user_entity.dart';
 import '../repositories/auth_repository.dart';
 
+/// E-mail e senha para login.
 class SignInParams extends Equatable {
   const SignInParams({
     required this.email,
@@ -18,6 +19,7 @@ class SignInParams extends Equatable {
   List<Object?> get props => [email, password];
 }
 
+/// Autentica o usuário com e-mail e senha.
 class SignInUseCase implements UseCase<UserEntity, SignInParams> {
   SignInUseCase(this.repository);
 

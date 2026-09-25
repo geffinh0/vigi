@@ -9,6 +9,7 @@ import '../bloc/checkin_bloc.dart';
 import '../bloc/checkin_event.dart';
 import '../bloc/checkin_state.dart';
 
+/// Configuração dos intervalos de cada modo.
 class MonitoringSettingsPage extends StatefulWidget {
   const MonitoringSettingsPage({super.key});
 

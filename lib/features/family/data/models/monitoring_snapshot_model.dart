@@ -1,5 +1,6 @@
 import '../../domain/entities/monitoring_snapshot_entity.dart';
 
+/// Modelo de `monitoring_settings` visto pela família.
 class MonitoringSnapshotModel extends MonitoringSnapshotEntity {
   const MonitoringSnapshotModel({
     required super.userId,

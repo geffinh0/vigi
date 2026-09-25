@@ -7,6 +7,7 @@ import '../../domain/entities/monitoring_snapshot_entity.dart';
 import '../../domain/repositories/family_repository.dart';
 import '../datasources/family_remote_datasource.dart';
 
+/// Converte exceções em [Failure]; mensagens das funções do banco já chegam amigáveis.
 class FamilyRepositoryImpl implements FamilyRepository {
   FamilyRepositoryImpl(this.remoteDataSource);
 

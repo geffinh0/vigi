@@ -1,5 +1,6 @@
 import '../../domain/entities/family_link_entity.dart';
 
+/// Modelo de `family_links` com os nomes/telefone das duas pontas.
 class FamilyLinkModel extends FamilyLinkEntity {
   const FamilyLinkModel({
     required super.id,

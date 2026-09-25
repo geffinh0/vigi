@@ -4,6 +4,7 @@ import '../../../panic/domain/entities/panic_alert_entity.dart';
 import '../entities/family_link_entity.dart';
 import '../entities/monitoring_snapshot_entity.dart';
 
+/// Contrato dos vínculos familiares e do acompanhamento em tempo real.
 abstract class FamilyRepository {
   Future<Either<Failure, List<FamilyLinkEntity>>> getFamilyLinks();
 

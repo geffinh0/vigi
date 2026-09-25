@@ -4,6 +4,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/family_link_entity.dart';
 import '../repositories/family_repository.dart';
 
+/// Lista os vínculos do usuário (como acompanhado ou como familiar).
 class GetFamilyLinksUseCase
     implements UseCase<List<FamilyLinkEntity>, NoParams> {
   GetFamilyLinksUseCase(this.repository);

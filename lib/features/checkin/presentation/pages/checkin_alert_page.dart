@@ -8,6 +8,7 @@ import '../bloc/checkin_bloc.dart';
 import '../bloc/checkin_event.dart';
 import '../bloc/checkin_state.dart';
 
+/// Tela de alarme em tela cheia: "Estou bem" ou pânico, e o status do aviso aos contatos.
 class CheckinAlertPage extends StatelessWidget {
   const CheckinAlertPage({super.key});
 

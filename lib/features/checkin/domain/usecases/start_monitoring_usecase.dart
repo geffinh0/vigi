@@ -5,6 +5,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../../../contacts/domain/repositories/contacts_repository.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Modo e, opcionalmente, um intervalo diferente do padrão.
 class StartMonitoringParams extends Equatable {
   const StartMonitoringParams({
     required this.modeId,
@@ -18,6 +19,7 @@ class StartMonitoringParams extends Equatable {
   List<Object?> get props => [modeId, intervalOverrideMinutes];
 }
 
+/// Inicia o monitoramento; exige ao menos um contato de emergência.
 class StartMonitoringUseCase implements UseCase<void, StartMonitoringParams> {
   StartMonitoringUseCase(this.repository, this.contactsRepository);
 

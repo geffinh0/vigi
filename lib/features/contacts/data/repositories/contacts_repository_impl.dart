@@ -5,6 +5,7 @@ import '../../domain/entities/emergency_contact_entity.dart';
 import '../../domain/repositories/contacts_repository.dart';
 import '../datasources/contacts_remote_datasource.dart';
 
+/// Converte exceções do Supabase em [Failure] (ex.: telefone duplicado).
 class ContactsRepositoryImpl implements ContactsRepository {
   ContactsRepositoryImpl(this.remoteDataSource);
 

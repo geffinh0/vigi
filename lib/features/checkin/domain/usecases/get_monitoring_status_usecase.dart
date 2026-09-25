@@ -4,6 +4,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/monitoring_status_entity.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Lê o estado atual do monitoramento (usado ao abrir o app).
 class GetMonitoringStatusUseCase
     implements UseCase<MonitoringStatusEntity, NoParams> {
   GetMonitoringStatusUseCase(this.repository);

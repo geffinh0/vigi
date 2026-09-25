@@ -4,6 +4,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/monitoring_mode_entity.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Lista os modos do sistema e os personalizados do usuário.
 class GetAvailableModesUseCase
     implements UseCase<List<MonitoringModeEntity>, NoParams> {
   GetAvailableModesUseCase(this.repository);

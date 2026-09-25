@@ -7,6 +7,7 @@ import '../../domain/usecases/trigger_panic_usecase.dart';
 import 'panic_event.dart';
 import 'panic_state.dart';
 
+/// Pânico: registra o evento e envia SMS aos contatos, mesmo com o servidor fora do ar.
 class PanicBloc extends Bloc<PanicEvent, PanicState> {
   PanicBloc({
     required this.triggerPanicUseCase,

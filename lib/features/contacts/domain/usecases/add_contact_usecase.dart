@@ -5,6 +5,7 @@ import '../../../../core/usecases/usecase.dart';
 import '../entities/emergency_contact_entity.dart';
 import '../repositories/contacts_repository.dart';
 
+/// Nome, telefone e parentesco do contato.
 class AddContactParams extends Equatable {
   const AddContactParams({
     required this.name,
@@ -20,6 +21,7 @@ class AddContactParams extends Equatable {
   List<Object?> get props => [name, phone, relationship];
 }
 
+/// Valida (Brasil ou internacional) e cadastra um contato de emergência.
 class AddContactUseCase
     implements UseCase<EmergencyContactEntity, AddContactParams> {
   AddContactUseCase(this.repository);

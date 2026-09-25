@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/emergency_contact_model.dart';
 
+/// Acesso à tabela `emergency_contacts`.
 abstract class ContactsRemoteDataSource {
   Future<List<EmergencyContactModel>> getContacts();
 
@@ -13,6 +14,7 @@ abstract class ContactsRemoteDataSource {
   Future<void> deleteContact(String contactId);
 }
 
+/// Implementação de [ContactsRemoteDataSource] com Supabase.
 class ContactsRemoteDataSourceImpl implements ContactsRemoteDataSource {
   ContactsRemoteDataSourceImpl(this.client);
 

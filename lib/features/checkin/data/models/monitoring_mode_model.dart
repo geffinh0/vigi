@@ -1,5 +1,6 @@
 import '../../domain/entities/monitoring_mode_entity.dart';
 
+/// Modelo de `monitoring_modes` (Rotina, Banho, Sono ou personalizado).
 class MonitoringModeModel extends MonitoringModeEntity {
   const MonitoringModeModel({
     required super.id,

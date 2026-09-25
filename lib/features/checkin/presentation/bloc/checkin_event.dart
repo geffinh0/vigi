@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/monitoring_mode_entity.dart';
 
+/// Eventos do `CheckinBloc`.
 abstract class CheckinEvent extends Equatable {
   const CheckinEvent();
 
@@ -8,14 +9,17 @@ abstract class CheckinEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+/// Carrega modos e estado do monitoramento (após o login).
 class LoadCheckinStatusRequested extends CheckinEvent {
   const LoadCheckinStatusRequested();
 }
 
+/// Recarrega a lista de modos.
 class LoadAvailableModesRequested extends CheckinEvent {
   const LoadAvailableModesRequested();
 }
 
+/// Seleciona um modo na tela inicial.
 class SelectModeRequested extends CheckinEvent {
   const SelectModeRequested(this.mode);
 
@@ -25,6 +29,7 @@ class SelectModeRequested extends CheckinEvent {
   List<Object?> get props => [mode];
 }
 
+/// Salva o intervalo de um modo.
 class SaveMonitoringSettingsRequested extends CheckinEvent {
   const SaveMonitoringSettingsRequested({
     required this.modeId,
@@ -38,6 +43,7 @@ class SaveMonitoringSettingsRequested extends CheckinEvent {
   List<Object?> get props => [modeId, intervalMinutes];
 }
 
+/// Inicia o monitoramento em um modo.
 class StartMonitoringRequested extends CheckinEvent {
   const StartMonitoringRequested({
     required this.modeId,
@@ -51,6 +57,7 @@ class StartMonitoringRequested extends CheckinEvent {
   List<Object?> get props => [modeId, intervalOverrideMinutes];
 }
 
+/// Cria um modo personalizado.
 class CreateCustomModeRequested extends CheckinEvent {
   const CreateCustomModeRequested({
     required this.name,
@@ -66,6 +73,7 @@ class CreateCustomModeRequested extends CheckinEvent {
   List<Object?> get props => [name, defaultIntervalMinutes, iconKey];
 }
 
+/// "Estou bem": renova o prazo e silencia o alarme.
 class ConfirmCheckinRequested extends CheckinEvent {
   const ConfirmCheckinRequested({this.latitude, this.longitude});
 
@@ -76,10 +84,12 @@ class ConfirmCheckinRequested extends CheckinEvent {
   List<Object?> get props => [latitude, longitude];
 }
 
+/// Pausa o monitoramento.
 class StopMonitoringRequested extends CheckinEvent {
   const StopMonitoringRequested();
 }
 
+/// Pulso de 1 s da contagem regressiva (interno).
 class CheckinTickReceived extends CheckinEvent {
   const CheckinTickReceived({
     required this.remainingSeconds,

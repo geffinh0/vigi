@@ -4,6 +4,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/checkin_repository.dart';
 
+/// Modo e intervalo escolhidos nas configurações.
 class SaveMonitoringSettingsParams extends Equatable {
   const SaveMonitoringSettingsParams({
     required this.modeId,
@@ -17,6 +18,7 @@ class SaveMonitoringSettingsParams extends Equatable {
   List<Object?> get props => [modeId, intervalMinutes];
 }
 
+/// Salva o intervalo preferido de um modo.
 class SaveMonitoringSettingsUseCase
     implements UseCase<void, SaveMonitoringSettingsParams> {
   const SaveMonitoringSettingsUseCase(this.repository);

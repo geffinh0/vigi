@@ -20,6 +20,7 @@ import '../../domain/usecases/stop_monitoring_usecase.dart';
 import 'checkin_event.dart';
 import 'checkin_state.dart';
 
+/// Coração do dead man's switch no app: contagem regressiva, alarme no prazo, escalonamento aos contatos após a tolerância e confirmação (inclusive offline).
 class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   CheckinBloc({
     required this.startMonitoringUseCase,

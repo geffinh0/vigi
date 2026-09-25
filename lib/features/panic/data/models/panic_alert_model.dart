@@ -1,5 +1,6 @@
 import '../../domain/entities/panic_alert_entity.dart';
 
+/// Modelo de um evento de `checkin_events` (pânico, alerta, check-in...).
 class PanicAlertModel extends PanicAlertEntity {
   const PanicAlertModel({
     required super.id,

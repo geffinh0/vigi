@@ -8,6 +8,7 @@ import '../bloc/contacts_bloc.dart';
 import '../bloc/contacts_event.dart';
 import '../bloc/contacts_state.dart';
 
+/// Cadastro dos contatos de emergência.
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
 
