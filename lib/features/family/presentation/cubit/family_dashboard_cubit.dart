@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../panic/domain/entities/panic_alert_entity.dart';
 import '../../domain/entities/family_link_entity.dart';
@@ -123,6 +124,8 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
   final Set<String> _eventsLoaded = {};
   StreamSubscription<void>? _linksSub;
   Timer? _clockTimer;
+  Timer? _authRetryTimer;
+  int _authRetries = 0;
 
   Future<void> start() async {
     _modeNames = await repository.getModeNames();
@@ -163,10 +166,18 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
     final me = currentUserId();
 
     result.fold(
-      (failure) => emit(
-        state.copyWith(loading: false, errorMessage: failure.message),
-      ),
+      (failure) {
+        // Sessão ainda sendo renovada: tenta de novo em silêncio.
+        if (failure is AuthFailure && _authRetries < 5) {
+          _authRetries++;
+          _authRetryTimer?.cancel();
+          _authRetryTimer = Timer(const Duration(seconds: 2), _reloadLinks);
+          return;
+        }
+        emit(state.copyWith(loading: false, errorMessage: failure.message));
+      },
       (links) {
+        _authRetries = 0;
         final mine = links.where((l) => l.viewerUserId == me).toList();
         _followed = mine.where((l) => l.isAccepted).toList();
 
@@ -268,6 +279,7 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
   @override
   Future<void> close() async {
     _clockTimer?.cancel();
+    _authRetryTimer?.cancel();
     await _linksSub?.cancel();
     _personSubs.keys.toList().forEach(_unwatch);
     return super.close();

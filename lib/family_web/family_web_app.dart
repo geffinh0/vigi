@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 import '../core/router/go_router_refresh_stream.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
@@ -81,18 +81,40 @@ class _FamilyWebAppState extends State<FamilyWebApp> {
         ),
         GoRoute(
           path: '/',
-          builder: (context, state) => BlocProvider(
-            create: (_) => FamilyDashboardCubit(
-              repository: _familyRepository,
-              getFamilyLinksUseCase: GetFamilyLinksUseCase(_familyRepository),
-              requestFamilyLinkUseCase: RequestFamilyLinkUseCase(
-                _familyRepository,
-              ),
-              currentUserId: () => widget.client.auth.currentUser?.id,
-            )..start(),
-            child: FamilyDashboardPage(
-              onSignOut: () => _authBloc.add(const AuthSignOutRequested()),
-            ),
+          // O painel só é montado com a sessão confirmada: ao reabrir o PWA com
+          // o token expirado, o Supabase ainda está renovando a sessão e as
+          // consultas falhariam com "Usuário não autenticado".
+          builder: (context, state) => BlocBuilder<AuthBloc, AuthState>(
+            buildWhen: (previous, current) =>
+                (previous is AuthAuthenticated) !=
+                (current is AuthAuthenticated),
+            builder: (context, auth) {
+              if (auth is! AuthAuthenticated) {
+                return const Scaffold(
+                  backgroundColor: AppColors.linho,
+                  body: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.petroleo,
+                    ),
+                  ),
+                );
+              }
+              return BlocProvider(
+                create: (_) => FamilyDashboardCubit(
+                  repository: _familyRepository,
+                  getFamilyLinksUseCase: GetFamilyLinksUseCase(
+                    _familyRepository,
+                  ),
+                  requestFamilyLinkUseCase: RequestFamilyLinkUseCase(
+                    _familyRepository,
+                  ),
+                  currentUserId: () => widget.client.auth.currentUser?.id,
+                )..start(),
+                child: FamilyDashboardPage(
+                  onSignOut: () => _authBloc.add(const AuthSignOutRequested()),
+                ),
+              );
+            },
           ),
         ),
       ],

@@ -47,7 +47,9 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
   void initState() {
     super.initState();
     _authBloc = sl<AuthBloc>()..add(const AuthCheckRequested());
-    _checkinBloc = sl<CheckinBloc>()..add(const LoadCheckinStatusRequested());
+    // O status é carregado quando a sessão é confirmada (listener abaixo);
+    // carregar antes disso gerava "Usuário não autenticado" na abertura.
+    _checkinBloc = sl<CheckinBloc>();
     _contactsBloc = sl<ContactsBloc>();
     _panicBloc = sl<PanicBloc>();
     _familyBloc = sl<FamilyBloc>();
