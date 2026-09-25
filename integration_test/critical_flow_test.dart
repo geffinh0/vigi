@@ -32,9 +32,11 @@ import 'package:guardiao/features/contacts/domain/usecases/delete_contact_usecas
 import 'package:guardiao/features/contacts/domain/usecases/get_contacts_usecase.dart';
 import 'package:guardiao/features/contacts/presentation/bloc/contacts_bloc.dart';
 import 'package:guardiao/features/family/domain/repositories/family_repository.dart';
-import 'package:guardiao/features/family/domain/usecases/accept_family_invite_usecase.dart';
 import 'package:guardiao/features/family/domain/usecases/get_family_links_usecase.dart';
-import 'package:guardiao/features/family/domain/usecases/send_family_invite_usecase.dart';
+import 'package:guardiao/features/family/domain/usecases/get_my_link_code_usecase.dart';
+import 'package:guardiao/features/family/domain/usecases/remove_family_link_usecase.dart';
+import 'package:guardiao/features/family/domain/usecases/request_family_link_usecase.dart';
+import 'package:guardiao/features/family/domain/usecases/respond_family_link_usecase.dart';
 import 'package:guardiao/features/family/presentation/bloc/family_bloc.dart';
 import 'package:guardiao/features/panic/domain/repositories/panic_repository.dart';
 import 'package:guardiao/features/panic/domain/usecases/resolve_panic_usecase.dart';
@@ -160,8 +162,11 @@ void main() {
 
         final familyBloc = FamilyBloc(
           getFamilyLinksUseCase: GetFamilyLinksUseCase(familyRepo),
-          sendFamilyInviteUseCase: SendFamilyInviteUseCase(familyRepo),
-          acceptFamilyInviteUseCase: AcceptFamilyInviteUseCase(familyRepo),
+          getMyLinkCodeUseCase: GetMyLinkCodeUseCase(familyRepo),
+          requestFamilyLinkUseCase: RequestFamilyLinkUseCase(familyRepo),
+          respondFamilyLinkUseCase: RespondFamilyLinkUseCase(familyRepo),
+          removeFamilyLinkUseCase: RemoveFamilyLinkUseCase(familyRepo),
+          currentUserId: () => 'u1',
         );
 
         await tester.pumpWidget(

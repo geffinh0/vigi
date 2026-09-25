@@ -10,6 +10,7 @@ import '../core/widgets/status_ring.dart';
 import '../core/widgets/vigi_mascot.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/bloc/auth_event.dart';
+import '../features/auth/presentation/bloc/auth_state.dart';
 import '../features/checkin/domain/entities/monitoring_mode_entity.dart';
 import '../features/checkin/presentation/bloc/checkin_bloc.dart';
 import '../features/checkin/presentation/bloc/checkin_event.dart';
@@ -40,6 +41,7 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
   late final FamilyBloc _familyBloc;
   late final GoRouter _router;
   StreamSubscription<Uri?>? _widgetClickSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
@@ -50,6 +52,14 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
     _panicBloc = sl<PanicBloc>();
     _familyBloc = sl<FamilyBloc>();
     _router = widget.router ?? buildRouter(_authBloc);
+
+    // O status do monitoramento depende da sessão: sem isso, na primeira
+    // instalação a tela inicial ficava sem o botão "Iniciar" após o login.
+    _authSubscription = _authBloc.stream.listen((state) {
+      if (state is AuthAuthenticated) {
+        _checkinBloc.add(const LoadCheckinStatusRequested());
+      }
+    });
 
     _setupWidgetClickListener();
   }
@@ -111,12 +121,15 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
     } else if (uri.host == 'disparar_panico' ||
         uriString.contains('disparar_panico')) {
       _panicBloc.add(const PanicTriggered());
+      // Mostra a tela de pânico para o usuário ver o status do envio.
+      unawaited(_router.push('/panic'));
     }
   }
 
   @override
   void dispose() {
     _widgetClickSubscription?.cancel();
+    _authSubscription?.cancel();
     _authBloc.close();
     _checkinBloc.close();
     _contactsBloc.close();
@@ -136,7 +149,7 @@ class _GuardiaoAppState extends State<GuardiaoApp> {
         BlocProvider<FamilyBloc>.value(value: _familyBloc),
       ],
       child: MaterialApp.router(
-        title: 'Guardião',
+        title: 'VIGI',
         debugShowCheckedModeBanner: false,
         theme: appTheme,
         routerConfig: _router,
@@ -153,6 +166,48 @@ class GuardiaoHomePage extends StatelessWidget {
     final minutes = ((totalSeconds % 3600) ~/ 60).toString().padLeft(2, '0');
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     return '$hours:$minutes:$seconds';
+  }
+
+  /// Sair com o monitoramento ativo deixaria o servidor esperando check-ins
+  /// (alerta falso aos familiares) e o alarme local agendado.
+  Future<void> _signOut(BuildContext context) async {
+    final checkinBloc = context.read<CheckinBloc>();
+    final authBloc = context.read<AuthBloc>();
+    final current = checkinBloc.state;
+
+    if (current is CheckinMonitoring || current is CheckinAlertActive) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Sair da conta?'),
+          content: const Text(
+            'O monitoramento será pausado e seus contatos não serão mais '
+            'avisados até você entrar novamente.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Pausar e sair'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+
+      checkinBloc.add(const StopMonitoringRequested());
+      await checkinBloc.stream
+          .firstWhere((s) => s is CheckinIdle || s is CheckinFailure)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => const CheckinInitial(),
+          );
+    }
+
+    authBloc.add(const AuthSignOutRequested());
   }
 
   Widget _buildQuickModeButton({
@@ -191,7 +246,7 @@ class GuardiaoHomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.linho,
       appBar: AppBar(
-        title: const Text('Guardião'),
+        title: const Text('VIGI'),
         actions: [
           IconButton(
             icon: const Icon(
@@ -220,9 +275,7 @@ class GuardiaoHomePage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.cinzaTexto),
             tooltip: 'Sair',
-            onPressed: () {
-              context.read<AuthBloc>().add(const AuthSignOutRequested());
-            },
+            onPressed: () => _signOut(context),
           ),
         ],
       ),
@@ -230,6 +283,11 @@ class GuardiaoHomePage extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: BlocConsumer<CheckinBloc, CheckinState>(
+            // A atualização do alerta (ex.: "contatos avisados") não pode
+            // empilhar uma segunda tela de alerta.
+            listenWhen: (previous, current) =>
+                !(previous is CheckinAlertActive &&
+                    current is CheckinAlertActive),
             listener: (context, state) {
               if (state is CheckinAlertActive) {
                 // Redireciona para tela dedicada de alerta sonoro
@@ -302,7 +360,7 @@ class GuardiaoHomePage extends StatelessWidget {
                   Text(
                     isMonitoring
                         ? (modeTitle ?? 'Monitoramento Ativo')
-                        : 'Você está protegido pelo Vigi',
+                        : 'Você está protegido pelo VIGI',
                     textAlign: TextAlign.center,
                     style: AppTypography.h2.copyWith(color: AppColors.petroleo),
                   ),
@@ -363,11 +421,11 @@ class GuardiaoHomePage extends StatelessWidget {
                             act?.iconKey == 'sleep' ||
                             (act?.name.toLowerCase().contains('sono') ?? false);
 
-                        String confirmText = 'Estou Bem (Confirmar Check-in)';
+                        String confirmText = 'Estou Bem';
                         if (isShower) {
-                          confirmText = 'Terminei o Banho (Estou Bem)';
+                          confirmText = 'Terminei o Banho';
                         } else if (isSleep) {
-                          confirmText = 'Acordei (Estou Bem)';
+                          confirmText = 'Acordei, Estou Bem';
                         }
 
                         return AppPrimaryButton(

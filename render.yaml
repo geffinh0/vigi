@@ -1,0 +1,21 @@
+# Blueprint do Render: publica o VIGI Família (painel web/PWA do familiar)
+# como site estático. Render > New > Blueprint > selecione este repositório.
+services:
+  - type: web
+    name: vigi-familia
+    runtime: static
+    buildCommand: bash scripts/render_build.sh
+    staticPublishPath: build/web
+    envVars:
+      - key: FLUTTER_VERSION
+        value: 3.38.5
+    headers:
+      # O service worker do PWA não pode ficar em cache, senão o navegador
+      # demora a receber versões novas do painel.
+      - path: /flutter_service_worker.js
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

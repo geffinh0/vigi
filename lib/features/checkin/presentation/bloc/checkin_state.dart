@@ -76,13 +76,31 @@ class CheckinAlertActive extends CheckinState {
   const CheckinAlertActive({
     required this.expiredAt,
     this.activeMode,
+    this.escalatesAt,
+    this.contactsFound,
+    this.smsSent,
   });
 
   final DateTime expiredAt;
   final MonitoringModeEntity? activeMode;
 
+  /// Momento em que os contatos de emergência serão acionados se não houver resposta.
+  final DateTime? escalatesAt;
+
+  /// Preenchidos após o acionamento automático dos contatos (dead man's switch).
+  final int? contactsFound;
+  final int? smsSent;
+
+  bool get contactsAlerted => contactsFound != null;
+
   @override
-  List<Object?> get props => [expiredAt, activeMode];
+  List<Object?> get props => [
+    expiredAt,
+    activeMode,
+    escalatesAt,
+    contactsFound,
+    smsSent,
+  ];
 }
 
 class CheckinFailure extends CheckinState {

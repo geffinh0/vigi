@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Tema central do Guardião — light, paleta 60/30/10.
+/// Tema central do VIGI — light, paleta 60/30/10.
 ///
 /// Definido como top-level `final` conforme spec do Stage 2.
 final ThemeData appTheme = ThemeData(

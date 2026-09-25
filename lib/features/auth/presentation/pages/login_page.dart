@@ -11,7 +11,14 @@ import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({
+    super.key,
+    this.title = 'VIGI',
+    this.subtitle = 'Proteção e tranquilidade para quem você ama',
+  });
+
+  final String title;
+  final String subtitle;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -80,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Guardião',
+                        widget.title,
                         textAlign: TextAlign.center,
                         style: AppTypography.h1.copyWith(
                           color: AppColors.petroleo,
@@ -88,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Proteção e tranquilidade para quem você ama',
+                        widget.subtitle,
                         textAlign: TextAlign.center,
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.cinzaTexto,

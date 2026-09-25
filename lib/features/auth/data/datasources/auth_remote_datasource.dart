@@ -79,6 +79,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw const AuthException('Falha ao registrar usuário.');
     }
 
+    // Com confirmação de e-mail ativa no Supabase, o cadastro não gera sessão:
+    // sem isso o app entraria "logado" e todas as chamadas falhariam.
+    if (response.session == null) {
+      throw AuthException(
+        'Cadastro criado! Abra o link enviado para $email para confirmar '
+        'a conta e depois faça login.',
+      );
+    }
+
     return UserModel(
       id: user.id,
       email: user.email ?? email,

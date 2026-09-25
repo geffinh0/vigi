@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
-/// Logger centralizado do projeto Guardião.
+/// Logger centralizado do projeto VIGI.
 ///
 /// Proíbe o uso de `print` solto no código de produção e garante
 /// visibilidade tanto no DevTools quanto no console do terminal.

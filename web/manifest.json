@@ -1,12 +1,12 @@
 {
-    "name": "guardiao",
-    "short_name": "guardiao",
+    "name": "VIGI Família",
+    "short_name": "VIGI Família",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#F2EFE8",
+    "theme_color": "#1F3D3B",
+    "description": "Acompanhe o bem-estar de quem você ama, sem invadir a privacidade.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
@@ -31,5 +31,6 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ]
+    ],
+    "lang": "pt-BR"
 }

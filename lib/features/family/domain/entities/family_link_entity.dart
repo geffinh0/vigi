@@ -8,6 +8,7 @@ class FamilyLinkEntity extends Equatable {
     required this.status,
     this.monitoredUserName,
     this.viewerUserName,
+    this.monitoredUserPhone,
     this.createdAt,
   });
 
@@ -17,6 +18,9 @@ class FamilyLinkEntity extends Equatable {
   final String status;
   final String? monitoredUserName;
   final String? viewerUserName;
+
+  /// Telefone da pessoa acompanhada (botão "Ligar" do painel da família).
+  final String? monitoredUserPhone;
   final DateTime? createdAt;
 
   bool get isAccepted => status == 'accepted';
@@ -30,6 +34,7 @@ class FamilyLinkEntity extends Equatable {
     status,
     monitoredUserName,
     viewerUserName,
+    monitoredUserPhone,
     createdAt,
   ];
 }

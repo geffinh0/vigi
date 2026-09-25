@@ -1,7 +1,9 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:guardiao/core/errors/failures.dart';
 import 'package:guardiao/core/services/alarm_service.dart';
+import 'package:guardiao/core/services/emergency_dispatcher.dart';
 import 'package:guardiao/core/services/notification_service.dart';
 import 'package:guardiao/core/services/widget_sync_service.dart';
 import 'package:guardiao/core/usecases/usecase.dart';
@@ -46,6 +48,8 @@ class MockNotificationService extends Mock implements NotificationService {}
 
 class MockWidgetSyncService extends Mock implements WidgetSyncService {}
 
+class MockEmergencyDispatcher extends Mock implements EmergencyDispatcher {}
+
 class FakeClock implements Clock {
   FakeClock(this._now);
   final DateTime _now;
@@ -60,6 +64,19 @@ class FakeTicker extends Ticker {
   @override
   Stream<int> secondsUntil(DateTime deadline, {required Clock clock}) {
     return Stream.fromIterable([2, 1, 0]);
+  }
+}
+
+/// Expira apenas no primeiro ciclo; após o check-in o novo prazo nunca vence.
+class OneShotTicker extends Ticker {
+  OneShotTicker();
+
+  int _calls = 0;
+
+  @override
+  Stream<int> secondsUntil(DateTime deadline, {required Clock clock}) {
+    _calls++;
+    return _calls == 1 ? Stream.fromIterable([1, 0]) : Stream.value(600);
   }
 }
 
@@ -118,6 +135,7 @@ void main() {
       ),
     );
     registerFallbackValue(const ConfirmCheckinParams());
+    registerFallbackValue(EmergencyReason.checkinTimeout);
   });
 
   setUp(() {
@@ -371,5 +389,155 @@ void main() {
         isA<CheckinAlertActive>(),
       ],
     );
+
+    group("dead man's switch (acionamento dos contatos)", () {
+      late MockEmergencyDispatcher mockDispatcher;
+
+      setUp(() {
+        mockDispatcher = MockEmergencyDispatcher();
+        when(
+          () => mockNotificationService.showTimeoutAlert(
+            title: any(named: 'title'),
+            body: any(named: 'body'),
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDispatcher.dispatch(reason: any(named: 'reason')),
+        ).thenAnswer(
+          (_) async =>
+              const EmergencyDispatchResult(contactsFound: 2, smsSent: 2),
+        );
+        when(
+          () => mockStartMonitoringUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => mockConfirmCheckinUseCase(any()),
+        ).thenAnswer((_) async => const Right(null));
+      });
+
+      CheckinBloc buildEscalatingBloc({Ticker ticker = fakeTicker}) =>
+          CheckinBloc(
+            startMonitoringUseCase: mockStartMonitoringUseCase,
+            confirmCheckinUseCase: mockConfirmCheckinUseCase,
+            stopMonitoringUseCase: mockStopMonitoringUseCase,
+            getMonitoringStatusUseCase: mockGetMonitoringStatusUseCase,
+            getAvailableModesUseCase: mockGetAvailableModesUseCase,
+            createCustomModeUseCase: mockCreateCustomModeUseCase,
+            saveMonitoringSettingsUseCase: mockSaveMonitoringSettingsUseCase,
+            ticker: ticker,
+            clock: fakeClock,
+            alarmService: mockAlarmService,
+            notificationService: mockNotificationService,
+            widgetSyncService: mockWidgetSyncService,
+            emergencyDispatcher: mockDispatcher,
+            escalationDelay: const Duration(milliseconds: 50),
+          );
+
+      blocTest<CheckinBloc, CheckinState>(
+        'avisa os contatos por SMS quando o alarme não é respondido',
+        build: buildEscalatingBloc,
+        seed: () => const CheckinIdle(
+          intervalMinutes: 20,
+          availableModes: tModes,
+          selectedMode: tModeShower,
+        ),
+        act: (bloc) => bloc.add(
+          const StartMonitoringRequested(
+            modeId: 'mode-shower',
+            intervalOverrideMinutes: 20,
+          ),
+        ),
+        wait: const Duration(milliseconds: 200),
+        expect: () => [
+          const CheckinLoading(),
+          isA<CheckinMonitoring>(),
+          isA<CheckinMonitoring>(),
+          isA<CheckinAlertActive>()
+              .having((s) => s.escalatesAt, 'escalatesAt', isNotNull)
+              .having((s) => s.contactsAlerted, 'contactsAlerted', false),
+          isA<CheckinAlertActive>()
+              .having((s) => s.contactsFound, 'contactsFound', 2)
+              .having((s) => s.smsSent, 'smsSent', 2),
+        ],
+        verify: (_) {
+          verify(
+            () => mockDispatcher.dispatch(
+              reason: EmergencyReason.checkinTimeout,
+            ),
+          ).called(1);
+        },
+      );
+
+      blocTest<CheckinBloc, CheckinState>(
+        'NÃO avisa os contatos se o usuário confirma antes da tolerância',
+        build: () => buildEscalatingBloc(ticker: OneShotTicker()),
+        seed: () => const CheckinIdle(
+          intervalMinutes: 20,
+          availableModes: tModes,
+          selectedMode: tModeShower,
+        ),
+        act: (bloc) async {
+          bloc.add(
+            const StartMonitoringRequested(
+              modeId: 'mode-shower',
+              intervalOverrideMinutes: 20,
+            ),
+          );
+          await bloc.stream.firstWhere((s) => s is CheckinAlertActive);
+          bloc.add(const ConfirmCheckinRequested());
+        },
+        wait: const Duration(milliseconds: 200),
+        verify: (_) {
+          verifyNever(
+            () => mockDispatcher.dispatch(reason: any(named: 'reason')),
+          );
+        },
+      );
+    });
+
+    group('check-in sem internet', () {
+      blocTest<CheckinBloc, CheckinState>(
+        'confirmação offline não deixa o usuário preso no alerta: o ciclo local recomeça',
+        build: () {
+          when(() => mockConfirmCheckinUseCase(any())).thenAnswer(
+            (_) async => const Left(NetworkFailure('Sem conexão')),
+          );
+          return buildBloc();
+        },
+        seed: () => CheckinAlertActive(expiredAt: baseTime),
+        act: (bloc) => bloc.add(const ConfirmCheckinRequested()),
+        wait: const Duration(milliseconds: 100),
+        expect: () => [
+          isA<CheckinFailure>().having(
+            (s) => s.message,
+            'message',
+            contains('Sem conexão'),
+          ),
+          isA<CheckinMonitoring>(),
+          isA<CheckinMonitoring>(),
+          isA<CheckinAlertActive>(),
+        ],
+        verify: (_) {
+          verify(() => mockAlarmService.stopAlert()).called(greaterThan(0));
+          verify(
+            () => mockNotificationService.scheduleTimeoutAlarm(any()),
+          ).called(1);
+        },
+      );
+
+      blocTest<CheckinBloc, CheckinState>(
+        '"Estou bem" sem monitoramento ativo (ex.: pelo widget) é ignorado',
+        build: buildBloc,
+        seed: () => const CheckinIdle(
+          intervalMinutes: 60,
+          availableModes: tModes,
+        ),
+        act: (bloc) => bloc.add(const ConfirmCheckinRequested()),
+        expect: () => <CheckinState>[],
+        verify: (_) {
+          verifyNever(() => mockConfirmCheckinUseCase(any()));
+        },
+      );
+    });
   });
 }

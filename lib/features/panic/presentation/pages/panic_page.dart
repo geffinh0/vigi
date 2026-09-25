@@ -57,7 +57,7 @@ class PanicPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Seus contatos de emergência e familiares foram notificados com sua localização.',
+                      _deliveryMessage(state),
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.cinzaTexto,
@@ -76,7 +76,7 @@ class PanicPage extends StatelessWidget {
                           Text(
                             state.alert.latitude != null
                                 ? 'Lat: ${state.alert.latitude!.toStringAsFixed(4)}, Lng: ${state.alert.longitude!.toStringAsFixed(4)}'
-                                : 'Localização enviada',
+                                : 'Localização indisponível (GPS desligado)',
                             style: AppTypography.caption,
                           ),
                         ],
@@ -134,5 +134,20 @@ class PanicPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _deliveryMessage(PanicActive state) {
+    final found = state.contactsFound;
+    final sent = state.smsSent;
+    if (found == null) {
+      return 'Alerta registrado. Seus familiares vinculados podem acompanhar pelo app.';
+    }
+    if (found == 0) {
+      return 'Nenhum contato de emergência cadastrado! Cadastre contatos para que sejam avisados.';
+    }
+    if (sent != null && sent > 0) {
+      return 'SMS com sua localização enviado para $sent de $found contato(s) de emergência.';
+    }
+    return 'Não foi possível enviar o SMS automaticamente. Confirme o envio no app de mensagens.';
   }
 }

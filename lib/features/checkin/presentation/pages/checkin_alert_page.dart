@@ -55,16 +55,18 @@ class CheckinAlertPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'O tempo limite para confirmação de presença expirou. O alarme continuará soando até sua confirmação.',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: Colors.white.withValues(alpha: 0.9),
+                  BlocBuilder<CheckinBloc, CheckinState>(
+                    builder: (context, state) => Text(
+                      _statusMessage(state),
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
                     ),
                   ),
                   const Spacer(),
                   AppPrimaryButton(
-                    text: 'ESTOU BEM (DESATIVAR ALARME)',
+                    text: 'ESTOU BEM',
                     icon: Icons.check_circle,
                     onPressed: () {
                       context.read<CheckinBloc>().add(
@@ -87,5 +89,28 @@ class CheckinAlertPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _statusMessage(CheckinState state) {
+    const base =
+        'O tempo limite para confirmação de presença expirou. O alarme continuará soando até sua confirmação.';
+    if (state is! CheckinAlertActive) return base;
+    if (state.contactsAlerted) {
+      final found = state.contactsFound ?? 0;
+      final sent = state.smsSent ?? 0;
+      if (found == 0) {
+        return 'Nenhum contato de emergência cadastrado para ser avisado. Toque em "Estou bem" se estiver tudo certo.';
+      }
+      return sent > 0
+          ? 'Seus contatos de emergência foram avisados por SMS com sua localização ($sent de $found). Toque em "Estou bem" se estiver tudo certo.'
+          : 'Não foi possível enviar o SMS automaticamente. Toque em "Estou bem" se estiver tudo certo.';
+    }
+    if (state.escalatesAt != null) {
+      return '$base Sem resposta, seus contatos de emergência serão avisados às '
+          '${state.escalatesAt!.hour.toString().padLeft(2, '0')}:'
+          '${state.escalatesAt!.minute.toString().padLeft(2, '0')}:'
+          '${state.escalatesAt!.second.toString().padLeft(2, '0')}.';
+    }
+    return base;
   }
 }

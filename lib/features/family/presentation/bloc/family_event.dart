@@ -8,20 +8,39 @@ abstract class FamilyEvent extends Equatable {
 }
 
 class LoadFamilyLinksRequested extends FamilyEvent {
-  const LoadFamilyLinksRequested();
-}
+  const LoadFamilyLinksRequested({this.silent = false});
 
-class SendFamilyInviteRequested extends FamilyEvent {
-  const SendFamilyInviteRequested(this.viewerUserId);
-
-  final String viewerUserId;
+  /// Recarga disparada pelo Realtime: não mostra o indicador de carregamento.
+  final bool silent;
 
   @override
-  List<Object?> get props => [viewerUserId];
+  List<Object?> get props => [silent];
 }
 
-class AcceptFamilyInviteRequested extends FamilyEvent {
-  const AcceptFamilyInviteRequested(this.linkId);
+class RequestFamilyLinkRequested extends FamilyEvent {
+  const RequestFamilyLinkRequested(this.code);
+
+  final String code;
+
+  @override
+  List<Object?> get props => [code];
+}
+
+class RespondFamilyLinkRequested extends FamilyEvent {
+  const RespondFamilyLinkRequested({
+    required this.linkId,
+    required this.accept,
+  });
+
+  final String linkId;
+  final bool accept;
+
+  @override
+  List<Object?> get props => [linkId, accept];
+}
+
+class RemoveFamilyLinkRequested extends FamilyEvent {
+  const RemoveFamilyLinkRequested(this.linkId);
 
   final String linkId;
 

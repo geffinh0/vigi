@@ -39,7 +39,7 @@ void main() {
 
       expect(find.text('ALERTA DE CHECK-IN!'), findsOneWidget);
       expect(find.byType(VigiMascot), findsOneWidget);
-      expect(find.text('ESTOU BEM (DESATIVAR ALARME)'), findsOneWidget);
+      expect(find.text('ESTOU BEM'), findsOneWidget);
       expect(find.text('DISPARAR PÂNICO'), findsOneWidget);
     },
   );

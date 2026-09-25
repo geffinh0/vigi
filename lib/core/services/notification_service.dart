@@ -3,7 +3,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 /// Serviço responsável pelo gerenciamento dos canais de notificação local
-/// do Guardião (Canal 1: Lembrete gentil / Canal 2: Alerta de emergência).
+/// do VIGI (Canal 1: Lembrete gentil / Canal 2: Alerta de emergência).
 class NotificationService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
@@ -119,7 +119,7 @@ class NotificationService {
     try {
       await _plugin.show(
         notificationIdOngoing,
-        'Guardião Ativo • $modeName',
+        'VIGI Ativo • $modeName',
         'Próximo check-in às $formattedTime (Proteção ativa)',
         NotificationDetails(android: androidDetails),
       );
@@ -177,7 +177,7 @@ class NotificationService {
       await _plugin.zonedSchedule(
         notificationIdAlerta,
         'ALERTA: CHECK-IN EXPIRADO!',
-        'Você não confirmou sua presença a tempo. Abra o Guardião para desativar o alarme.',
+        'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
         tzDeadline,
         notificationDetails,
         androidScheduleMode: AndroidScheduleMode.alarmClock,
@@ -189,7 +189,7 @@ class NotificationService {
         await _plugin.zonedSchedule(
           notificationIdAlerta,
           'ALERTA: CHECK-IN EXPIRADO!',
-          'Você não confirmou sua presença a tempo. Abra o Guardião para desativar o alarme.',
+          'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
           tzDeadline,
           notificationDetails,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -209,7 +209,7 @@ class NotificationService {
   Future<void> showTimeoutAlert({
     String title = 'ALERTA: CHECK-IN EXPIRADO!',
     String body =
-        'Você não confirmou sua presença a tempo. Abra o Guardião para desativar o alarme.',
+        'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
   }) async {
     const androidDetails = AndroidNotificationDetails(
       channelIdAlerta,

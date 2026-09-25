@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
+import '../../../../core/utils/location_helper.dart';
 import '../entities/panic_alert_entity.dart';
 import '../repositories/panic_repository.dart';
 
@@ -30,40 +30,10 @@ class TriggerPanicUseCase
     double? lng = params.longitude;
 
     if (lat == null || lng == null) {
-      try {
-        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (serviceEnabled) {
-          final permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.always ||
-              permission == LocationPermission.whileInUse) {
-            final position =
-                await Geolocator.getCurrentPosition(
-                  locationSettings: const LocationSettings(
-                    timeLimit: Duration(seconds: 3),
-                  ),
-                ).catchError((_) async {
-                  return await Geolocator.getLastKnownPosition() ??
-                      Position(
-                        longitude: 0,
-                        latitude: 0,
-                        timestamp: DateTime.now(),
-                        accuracy: 0,
-                        altitude: 0,
-                        altitudeAccuracy: 0,
-                        heading: 0,
-                        headingAccuracy: 0,
-                        speed: 0,
-                        speedAccuracy: 0,
-                      );
-                });
-
-            lat = position.latitude;
-            lng = position.longitude;
-          }
-        }
-      } catch (_) {
-        // Fallback resiliente: o envio do alerta nunca deve travar por falha no GPS
-      }
+      // O envio do alerta nunca deve travar por falha no GPS
+      final position = await LocationHelper.currentPositionOrNull();
+      lat = position?.latitude;
+      lng = position?.longitude;
     }
 
     return repository.triggerPanic(latitude: lat, longitude: lng);

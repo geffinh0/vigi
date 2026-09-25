@@ -1,5 +1,12 @@
 abstract class AppConfig {
-  static const String appName = 'Guardião';
+  static const String appName = 'VIGI';
+
+  /// Endereço público do VIGI Família (PWA web do familiar), usado na
+  /// mensagem de convite. Defina com --dart-define=FAMILY_WEB_URL=...
+  static const String familyWebUrl = String.fromEnvironment(
+    'FAMILY_WEB_URL',
+    defaultValue: '',
+  );
   static const String appVersion = '2.0.0';
 
   // Configurações do Supabase (Ajuste com suas credenciais do projeto)

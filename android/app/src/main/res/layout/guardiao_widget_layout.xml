@@ -19,7 +19,7 @@
             android:id="@+id/widget_icon"
             android:layout_width="38dp"
             android:layout_height="38dp"
-            android:contentDescription="Status do Guardião"
+            android:contentDescription="Status do VIGI"
             android:src="@mipmap/ic_launcher" />
 
         <LinearLayout

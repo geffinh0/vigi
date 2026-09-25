@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Tokens centrais de cor do Guardião.
+/// Tokens centrais de cor do VIGI.
 ///
 /// Paleta 60/30/10 definida no Stage 2 do design system.
 /// Nenhuma cor deve ser usada hardcoded fora deste arquivo.

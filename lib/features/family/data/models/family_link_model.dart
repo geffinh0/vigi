@@ -8,6 +8,7 @@ class FamilyLinkModel extends FamilyLinkEntity {
     required super.status,
     super.monitoredUserName,
     super.viewerUserName,
+    super.monitoredUserPhone,
     super.createdAt,
   });
 
@@ -26,6 +27,7 @@ class FamilyLinkModel extends FamilyLinkEntity {
       status: map['status'] as String? ?? 'pending',
       monitoredUserName: monitoredUser?['full_name'] as String?,
       viewerUserName: viewerUser?['full_name'] as String?,
+      monitoredUserPhone: monitoredUser?['phone'] as String?,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'] as String)
           : null,

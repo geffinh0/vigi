@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../panic/domain/entities/panic_alert_entity.dart';
 import '../../domain/entities/family_link_entity.dart';
+import '../../domain/entities/monitoring_snapshot_entity.dart';
 import '../../domain/repositories/family_repository.dart';
 import '../datasources/family_remote_datasource.dart';
 
@@ -11,59 +12,71 @@ class FamilyRepositoryImpl implements FamilyRepository {
 
   final FamilyRemoteDataSource remoteDataSource;
 
-  @override
-  Future<Either<Failure, List<FamilyLinkEntity>>> getFamilyLinks() async {
+  /// As funções do banco lançam mensagens já amigáveis (ex.: código inválido).
+  Future<Either<Failure, T>> _guard<T>(
+    Future<T> Function() action,
+    String context,
+  ) async {
     try {
-      final links = await remoteDataSource.getFamilyLinks();
-      return Right(links);
+      return Right(await action());
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
     } on PostgrestException catch (e) {
-      return Left(ServerFailure('Erro ao buscar vínculos: ${e.message}'));
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, FamilyLinkEntity>> createInvite({
-    required String viewerUserId,
-  }) async {
-    try {
-      final link = await remoteDataSource.createInvite(
-        viewerUserId: viewerUserId,
+      final isFriendly = e.code == 'P0001';
+      return Left(
+        ServerFailure(isFriendly ? e.message : '$context: ${e.message}'),
       );
-      return Right(link);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on PostgrestException catch (e) {
-      if (e.code == '23505') {
-        return const Left(
-          ValidationFailure('Já existe um convite entre estes usuários.'),
-        );
-      }
-      return Left(ServerFailure('Erro ao enviar convite: ${e.message}'));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, void>> acceptInvite({required String linkId}) async {
+  Future<Either<Failure, List<FamilyLinkEntity>>> getFamilyLinks() =>
+      _guard(remoteDataSource.getFamilyLinks, 'Erro ao buscar vínculos');
+
+  @override
+  Future<Either<Failure, String>> getMyLinkCode() =>
+      _guard(remoteDataSource.getMyLinkCode, 'Erro ao gerar código');
+
+  @override
+  Future<Either<Failure, String>> requestLinkByCode(String code) => _guard(
+    () => remoteDataSource.requestLinkByCode(code),
+    'Erro ao enviar pedido',
+  );
+
+  @override
+  Future<Either<Failure, void>> respondToLink({
+    required String linkId,
+    required bool accept,
+  }) => _guard(
+    () => remoteDataSource.respondToLink(linkId: linkId, accept: accept),
+    'Erro ao responder pedido',
+  );
+
+  @override
+  Future<Either<Failure, void>> removeLink(String linkId) => _guard(
+    () => remoteDataSource.removeLink(linkId),
+    'Erro ao remover vínculo',
+  );
+
+  @override
+  Stream<void> watchLinksChanges() => remoteDataSource.watchLinksChanges();
+
+  @override
+  Stream<MonitoringSnapshotEntity?> watchMonitoringSnapshot(String userId) =>
+      remoteDataSource.watchMonitoringSnapshot(userId);
+
+  @override
+  Stream<List<PanicAlertEntity>> watchMonitoredEvents(String monitoredUserId) =>
+      remoteDataSource.watchMonitoredEvents(monitoredUserId);
+
+  @override
+  Future<Map<String, String>> getModeNames() async {
     try {
-      await remoteDataSource.acceptInvite(linkId: linkId);
-      return const Right(null);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(e.message));
-    } on PostgrestException catch (e) {
-      return Left(ServerFailure('Erro ao aceitar convite: ${e.message}'));
-    } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return await remoteDataSource.getModeNames();
+    } catch (_) {
+      return const {};
     }
-  }
-
-  @override
-  Stream<List<PanicAlertEntity>> watchMonitoredEvents(String monitoredUserId) {
-    return remoteDataSource.watchMonitoredEvents(monitoredUserId);
   }
 }

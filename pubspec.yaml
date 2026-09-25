@@ -48,6 +48,8 @@ dependencies:
   audioplayers: ^6.7.1
   vibration: ^3.1.8
   home_widget: ^0.9.3
+  # Notificações do navegador no painel web da família (VIGI Família)
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -62,3 +64,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/audio/

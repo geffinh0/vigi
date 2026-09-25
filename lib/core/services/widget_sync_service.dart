@@ -35,7 +35,7 @@ class WidgetSyncServiceImpl implements WidgetSyncService {
       final formattedTime =
           timeDisplay ?? (isMonitoring ? '$minutesRemaining min' : 'Pausado');
       final formattedStatus =
-          statusDisplay ?? (isMonitoring ? modeName : 'Guardião');
+          statusDisplay ?? (isMonitoring ? modeName : 'VIGI');
 
       await HomeWidget.saveWidgetData<String>('vigi_state', vigiState);
       await HomeWidget.saveWidgetData<int>(

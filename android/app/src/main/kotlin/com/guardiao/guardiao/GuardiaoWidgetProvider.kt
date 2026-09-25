@@ -8,7 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetBackgroundReceiver
+import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetPlugin
 
 class GuardiaoWidgetProvider : AppWidgetProvider() {
@@ -42,7 +42,7 @@ class GuardiaoWidgetProvider : AppWidgetProvider() {
             } else if (isMonitoring) {
                 modeName
             } else {
-                "Guardião"
+                "VIGI"
             }
 
             val finalTime = if (timeDisplay.isNotEmpty()) {
@@ -92,20 +92,23 @@ class GuardiaoWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /// Os botões abrem o app com a ação (LAUNCH) em vez de rodar num isolate de
+    /// background: lá o Supabase não é inicializado e o cronômetro/alarme do app
+    /// não ficaria sabendo do check-in, gerando alerta falso aos contatos.
     private fun createPendingIntent(
         context: Context,
         requestCode: Int,
         uriString: String
     ): PendingIntent {
-        val intent = Intent(context, HomeWidgetBackgroundReceiver::class.java).apply {
+        val intent = Intent(context, MainActivity::class.java).apply {
             data = Uri.parse(uriString)
-            action = "es.antonborri.home_widget.action.BACKGROUND"
+            action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
         }
         val flags = if (Build.VERSION.SDK_INT >= 23) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
-        return PendingIntent.getBroadcast(context, requestCode, intent, flags)
+        return PendingIntent.getActivity(context, requestCode, intent, flags)
     }
 }

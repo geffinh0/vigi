@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/errors/failures.dart';
 import '../../../../core/services/alarm_service.dart';
+import '../../../../core/services/emergency_dispatcher.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/widget_sync_service.dart';
 import '../../../../core/usecases/usecase.dart';
@@ -32,6 +34,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required this.alarmService,
     required this.notificationService,
     this.widgetSyncService = const WidgetSyncServiceImpl(),
+    this.emergencyDispatcher,
+    this.escalationDelay = const Duration(seconds: 60),
   }) : super(const CheckinInitial()) {
     on<LoadCheckinStatusRequested>(_onLoadCheckinStatusRequested);
     on<LoadAvailableModesRequested>(_onLoadAvailableModesRequested);
@@ -42,6 +46,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<ConfirmCheckinRequested>(_onConfirmCheckinRequested);
     on<StopMonitoringRequested>(_onStopMonitoringRequested);
     on<CheckinTickReceived>(_onCheckinTickReceived);
+    on<CheckinEscalationRequested>(_onCheckinEscalationRequested);
   }
 
   final StartMonitoringUseCase startMonitoringUseCase;
@@ -57,7 +62,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final NotificationService notificationService;
   final WidgetSyncService widgetSyncService;
 
+  /// Aciona os contatos de emergência quando o alarme não é respondido.
+  /// Opcional para permitir testes isolados do fluxo de contagem.
+  final EmergencyDispatcher? emergencyDispatcher;
+
+  /// Tolerância entre o alarme local e o acionamento dos contatos.
+  final Duration escalationDelay;
+
   StreamSubscription<int>? _tickerSubscription;
+  Timer? _escalationTimer;
+  Timer? _confirmRetryTimer;
   int _currentIntervalMinutes = 60;
   int _savedRoutineIntervalMinutes = 60;
   List<MonitoringModeEntity> _availableModes = [];
@@ -412,46 +426,73 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     Emitter<CheckinState> emit,
   ) async {
     // Interrompe o alarme se estiver soando
+    _escalationTimer?.cancel();
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
 
     final currentState = state;
-    if (_availableModes.isEmpty &&
-        currentState is CheckinIdle &&
-        currentState.availableModes.isNotEmpty) {
-      _availableModes = currentState.availableModes;
+    // Sem monitoramento ativo (ex.: "Estou bem" tocado no widget), não há
+    // prazo a renovar: iniciar um ciclo só local divergiria do servidor.
+    if (currentState is CheckinIdle || currentState is CheckinInitial) {
+      return;
     }
 
-    final result = await confirmCheckinUseCase(
-      ConfirmCheckinParams(
-        latitude: event.latitude,
-        longitude: event.longitude,
-      ),
+    final params = ConfirmCheckinParams(
+      latitude: event.latitude,
+      longitude: event.longitude,
     );
-    result.fold(
-      (failure) => emit(CheckinFailure(failure.message)),
-      (_) {
-        // Se o usuário estava em modo temporário (Banho ou Sono), ao confirmar presença
-        // retorna automaticamente para o modo de Rotina padrão com seu respectivo intervalo.
-        if (_isTemporaryMode(_activeMode)) {
-          final routineMode = _findRoutineMode(_availableModes);
-          _activeMode = routineMode;
-          _currentIntervalMinutes =
-              routineMode?.defaultIntervalMinutes ??
-              _savedRoutineIntervalMinutes;
-        }
+    final result = await confirmCheckinUseCase(params);
+    final failure = result.getLeft().toNullable();
+    if (failure is AuthFailure) {
+      emit(CheckinFailure(failure.message));
+      return;
+    }
+    if (failure == null) {
+      _confirmRetryTimer?.cancel();
+    } else {
+      // Sem conexão: a pessoa RESPONDEU, então o ciclo local continua (não pode
+      // ficar preso no alerta sem proteção); o servidor é atualizado depois.
+      emit(
+        const CheckinFailure(
+          'Sem conexão: confirmação registrada no aparelho. '
+          'Será enviada ao servidor quando a internet voltar.',
+        ),
+      );
+      _scheduleConfirmRetry(params);
+    }
 
-        final nextDeadline = clock.now().add(
-          Duration(minutes: _currentIntervalMinutes),
-        );
-        _syncWidget(
-          vigiState: 'normal',
-          minutesRemaining: _currentIntervalMinutes,
-          isMonitoring: true,
-        );
-        _startTicker(nextDeadline, activeMode: _activeMode);
-      },
+    // Se o usuário estava em modo temporário (Banho ou Sono), ao confirmar presença
+    // retorna automaticamente para o modo de Rotina padrão com seu respectivo intervalo.
+    if (_isTemporaryMode(_activeMode)) {
+      final routineMode = _findRoutineMode(_availableModes);
+      _activeMode = routineMode;
+      _currentIntervalMinutes =
+          routineMode?.defaultIntervalMinutes ?? _savedRoutineIntervalMinutes;
+    }
+
+    final nextDeadline = clock.now().add(
+      Duration(minutes: _currentIntervalMinutes),
     );
+    _syncWidget(
+      vigiState: 'normal',
+      minutesRemaining: _currentIntervalMinutes,
+      isMonitoring: true,
+    );
+    _startTicker(nextDeadline, activeMode: _activeMode);
+  }
+
+  /// Reenvia a confirmação ao servidor a cada 30 s até conseguir, para o
+  /// dead man's switch do servidor não alertar a família por engano.
+  void _scheduleConfirmRetry(ConfirmCheckinParams params, [int attempt = 1]) {
+    _confirmRetryTimer?.cancel();
+    if (attempt > 20) return;
+    _confirmRetryTimer = Timer(const Duration(seconds: 30), () async {
+      if (isClosed) return;
+      final retry = await confirmCheckinUseCase(params);
+      if (retry.isLeft() && !isClosed) {
+        _scheduleConfirmRetry(params, attempt + 1);
+      }
+    });
   }
 
   Future<void> _onStopMonitoringRequested(
@@ -459,6 +500,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     Emitter<CheckinState> emit,
   ) async {
     await _tickerSubscription?.cancel();
+    _escalationTimer?.cancel();
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
 
@@ -533,10 +575,20 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         statusDisplay: 'Alerta: ${event.activeMode?.name ?? "Rotina"}',
       );
 
+      DateTime? escalatesAt;
+      if (emergencyDispatcher != null) {
+        escalatesAt = clock.now().add(escalationDelay);
+        _escalationTimer?.cancel();
+        _escalationTimer = Timer(escalationDelay, () {
+          if (!isClosed) add(const CheckinEscalationRequested());
+        });
+      }
+
       emit(
         CheckinAlertActive(
           expiredAt: event.nextDeadline,
           activeMode: event.activeMode,
+          escalatesAt: escalatesAt,
         ),
       );
       return;
@@ -585,8 +637,51 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     );
   }
 
+  /// Dead man's switch: o usuário não respondeu ao alarme dentro da tolerância,
+  /// então os contatos de emergência são avisados automaticamente.
+  Future<void> _onCheckinEscalationRequested(
+    CheckinEscalationRequested event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final current = state;
+    final dispatcher = emergencyDispatcher;
+    if (current is! CheckinAlertActive ||
+        current.contactsAlerted ||
+        dispatcher == null) {
+      return;
+    }
+
+    final result = await dispatcher.dispatch(
+      reason: EmergencyReason.checkinTimeout,
+    );
+
+    unawaited(
+      notificationService.showTimeoutAlert(
+        title: 'CONTATOS DE EMERGÊNCIA AVISADOS',
+        body: result.smsSent > 0
+            ? 'SMS enviado para ${result.smsSent} contato(s). Abra o VIGI e confirme que está bem.'
+            : 'Não foi possível enviar SMS. Abra o VIGI e confirme que está bem.',
+      ),
+    );
+
+    // O usuário pode ter confirmado presença enquanto o envio acontecia.
+    if (state is! CheckinAlertActive) return;
+
+    emit(
+      CheckinAlertActive(
+        expiredAt: current.expiredAt,
+        activeMode: current.activeMode,
+        escalatesAt: current.escalatesAt,
+        contactsFound: result.contactsFound,
+        smsSent: result.smsSent,
+      ),
+    );
+  }
+
   @override
   Future<void> close() async {
+    _escalationTimer?.cancel();
+    _confirmRetryTimer?.cancel();
     await _tickerSubscription?.cancel();
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());

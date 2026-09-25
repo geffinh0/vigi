@@ -13,7 +13,7 @@ class SmsFallbackService {
     final name = userName ?? 'Seu familiar';
     final googleMapsUrl = 'https://maps.google.com/?q=$lat,$lng';
     final message =
-        '🚨 ALERTA GUARDIÃO: $name acionou o Botão de Pânico em situação de emergência! Localização GPS: $googleMapsUrl';
+        '🚨 ALERTA VIGI: $name acionou o Botão de Pânico em situação de emergência! Localização GPS: $googleMapsUrl';
 
     final recipients = phoneNumbers.join(',');
     final uri = Uri.parse(

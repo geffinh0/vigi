@@ -1,7 +1,7 @@
 import 'package:logging/logging.dart';
 
 abstract class AppLogger {
-  static final Logger _logger = Logger('Guardião');
+  static final Logger _logger = Logger('VIGI');
 
   static void init() {
     Logger.root.level = Level.ALL;

@@ -26,13 +26,25 @@ class AlarmServiceImpl implements AlarmService {
     _isAlerting = true;
 
     try {
+      // Stream de ALARME do Android: toca mesmo no modo silencioso/vibrar
+      // e mantém o processo acordado enquanto soa.
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            stayAwake: true,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.alarm,
+            audioFocus: AndroidAudioFocus.gainTransientExclusive,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+          ),
+        ),
+      );
       // Configura reprodução contínua em loop com volume máximo
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       await _audioPlayer.setVolume(1.0);
-      // Usa asset ou fallback sonoro de alarme
-      await _audioPlayer.play(
-        AssetSource('audio/alarm.mp3'),
-      );
+      await _audioPlayer.play(AssetSource('audio/alarm.wav'));
     } catch (_) {
       // Fallback: se o asset não estiver presente no ambiente de teste/debug, continua com vibração
     }

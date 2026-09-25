@@ -94,3 +94,9 @@ class CheckinTickReceived extends CheckinEvent {
   @override
   List<Object?> get props => [remainingSeconds, nextDeadline, activeMode];
 }
+
+/// Disparado internamente quando o alarme de check-in expirado não é
+/// respondido dentro do período de tolerância: aciona os contatos de emergência.
+class CheckinEscalationRequested extends CheckinEvent {
+  const CheckinEscalationRequested();
+}

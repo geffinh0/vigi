@@ -17,12 +17,18 @@ class PanicLoading extends PanicState {
 }
 
 class PanicActive extends PanicState {
-  const PanicActive(this.alert);
+  const PanicActive(this.alert, {this.contactsFound, this.smsSent});
 
   final PanicAlertEntity alert;
 
+  /// Quantidade de contatos de emergência encontrados no momento do disparo.
+  final int? contactsFound;
+
+  /// Quantidade de SMS enviados automaticamente pelo aparelho.
+  final int? smsSent;
+
   @override
-  List<Object?> get props => [alert];
+  List<Object?> get props => [alert, contactsFound, smsSent];
 }
 
 class PanicResolvedState extends PanicState {

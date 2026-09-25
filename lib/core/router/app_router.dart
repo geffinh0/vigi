@@ -1,5 +1,4 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/app.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -9,23 +8,14 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/checkin/presentation/pages/checkin_alert_page.dart';
 import '../../features/checkin/presentation/pages/monitoring_settings_page.dart';
 import '../../features/contacts/presentation/pages/contacts_page.dart';
+import '../../features/family/presentation/cubit/family_dashboard_cubit.dart';
+import '../../features/family/presentation/pages/family_dashboard_page.dart';
 import '../../features/family/presentation/pages/family_panel_page.dart';
+import '../../injection/injection_container.dart';
+import 'go_router_refresh_stream.dart';
+
+export 'go_router_refresh_stream.dart';
 import '../../features/panic/presentation/pages/panic_page.dart';
-
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    notifyListeners();
-    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
-  }
-
-  late final StreamSubscription<dynamic> _subscription;
-
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
-}
 
 GoRouter buildRouter(AuthBloc authBloc) {
   return GoRouter(
@@ -77,6 +67,13 @@ GoRouter buildRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/family',
         builder: (context, state) => const FamilyPanelPage(),
+      ),
+      GoRoute(
+        path: '/family-dashboard',
+        builder: (context, state) => BlocProvider(
+          create: (_) => sl<FamilyDashboardCubit>()..start(),
+          child: const FamilyDashboardPage(),
+        ),
       ),
     ],
   );

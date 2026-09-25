@@ -6,7 +6,7 @@ import '../theme/app_typography.dart';
 /// Variantes do botão principal do design system.
 enum AppButtonVariant { primary, danger, outline }
 
-/// Botão reutilizável do Guardião — usa [AppColors.ambar] como padrão,
+/// Botão reutilizável do VIGI — usa [AppColors.ambar] como padrão,
 /// alto contraste, alvo de toque ≥ 48 dp (acessibilidade).
 class AppPrimaryButton extends StatelessWidget {
   final String text;

@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-/// Entidade de domínio para o Usuário autenticado no Guardião.
+/// Entidade de domínio para o Usuário autenticado no VIGI.
 class UserEntity extends Equatable {
   const UserEntity({
     required this.id,

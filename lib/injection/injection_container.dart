@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/network_info.dart';
 import '../core/network/sync_queue.dart';
 import '../core/services/alarm_service.dart';
+import '../core/services/emergency_dispatcher.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/push_service.dart';
 import '../core/services/widget_sync_service.dart';
 import '../core/utils/clock.dart';
 import '../core/utils/ticker.dart';
@@ -37,10 +39,13 @@ import '../features/contacts/presentation/bloc/contacts_bloc.dart';
 import '../features/family/data/datasources/family_remote_datasource.dart';
 import '../features/family/data/repositories/family_repository_impl.dart';
 import '../features/family/domain/repositories/family_repository.dart';
-import '../features/family/domain/usecases/accept_family_invite_usecase.dart';
 import '../features/family/domain/usecases/get_family_links_usecase.dart';
-import '../features/family/domain/usecases/send_family_invite_usecase.dart';
+import '../features/family/domain/usecases/get_my_link_code_usecase.dart';
+import '../features/family/domain/usecases/remove_family_link_usecase.dart';
+import '../features/family/domain/usecases/request_family_link_usecase.dart';
+import '../features/family/domain/usecases/respond_family_link_usecase.dart';
 import '../features/family/presentation/bloc/family_bloc.dart';
+import '../features/family/presentation/cubit/family_dashboard_cubit.dart';
 import '../features/panic/data/datasources/panic_remote_datasource.dart';
 import '../features/panic/data/repositories/panic_repository_impl.dart';
 import '../features/panic/domain/repositories/panic_repository.dart';
@@ -145,6 +150,20 @@ Future<void> initDependencies() async {
       ),
     );
 
+  // ── Push FCM (Canal 2: familiares vinculados) ──────────────────
+  if (client != null && !sl.isRegistered<PushService>()) {
+    sl.registerLazySingleton<PushService>(
+      () => PushService(client: sl(), notificationService: sl()),
+    );
+  }
+
+  // ── Emergency Dispatcher (SMS aos contatos de emergência) ──────
+  if (client != null && !sl.isRegistered<EmergencyDispatcher>()) {
+    sl.registerLazySingleton<EmergencyDispatcher>(
+      () => EmergencyDispatcherImpl(contactsRepository: sl(), client: sl()),
+    );
+  }
+
   // ── Checkin Feature ────────────────────────────────────────────
   if (client != null) {
     sl
@@ -180,6 +199,9 @@ Future<void> initDependencies() async {
         alarmService: sl(),
         notificationService: sl(),
         widgetSyncService: sl(),
+        emergencyDispatcher: sl.isRegistered<EmergencyDispatcher>()
+            ? sl<EmergencyDispatcher>()
+            : null,
       ),
     );
 
@@ -200,6 +222,9 @@ Future<void> initDependencies() async {
       () => PanicBloc(
         triggerPanicUseCase: sl(),
         resolvePanicUseCase: sl(),
+        emergencyDispatcher: sl.isRegistered<EmergencyDispatcher>()
+            ? sl<EmergencyDispatcher>()
+            : null,
       ),
     );
 
@@ -213,15 +238,32 @@ Future<void> initDependencies() async {
         () => FamilyRepositoryImpl(sl()),
       );
   }
+  String? currentUserId() => client?.auth.currentUser?.id;
   sl
     ..registerLazySingleton(() => GetFamilyLinksUseCase(sl()))
-    ..registerLazySingleton(() => SendFamilyInviteUseCase(sl()))
-    ..registerLazySingleton(() => AcceptFamilyInviteUseCase(sl()))
+    ..registerLazySingleton(() => GetMyLinkCodeUseCase(sl()))
+    ..registerLazySingleton(() => RequestFamilyLinkUseCase(sl()))
+    ..registerLazySingleton(() => RespondFamilyLinkUseCase(sl()))
+    ..registerLazySingleton(() => RemoveFamilyLinkUseCase(sl()))
     ..registerFactory(
       () => FamilyBloc(
         getFamilyLinksUseCase: sl(),
-        sendFamilyInviteUseCase: sl(),
-        acceptFamilyInviteUseCase: sl(),
+        getMyLinkCodeUseCase: sl(),
+        requestFamilyLinkUseCase: sl(),
+        respondFamilyLinkUseCase: sl(),
+        removeFamilyLinkUseCase: sl(),
+        currentUserId: currentUserId,
+        repository: sl.isRegistered<FamilyRepository>()
+            ? sl<FamilyRepository>()
+            : null,
+      ),
+    )
+    ..registerFactory(
+      () => FamilyDashboardCubit(
+        repository: sl(),
+        getFamilyLinksUseCase: sl(),
+        requestFamilyLinkUseCase: sl(),
+        currentUserId: currentUserId,
       ),
     );
 }

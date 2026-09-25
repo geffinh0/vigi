@@ -82,7 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Junte-se ao Guardião',
+                      'Junte-se ao VIGI',
                       style: AppTypography.h2.copyWith(
                         color: AppColors.petroleo,
                       ),
