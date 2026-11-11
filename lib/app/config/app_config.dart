@@ -1,6 +1,6 @@
 /// Configuração do app. Os valores podem ser sobrescritos com `--dart-define` (não há arquivo .env).
 abstract class AppConfig {
-  static const String appName = 'VIGI';
+  static const String appName = 'Vigi';
 
   /// Endereço público do VIGI Família (PWA web do familiar), usado na
   /// mensagem de convite. Defina com --dart-define=FAMILY_WEB_URL=...
@@ -8,7 +8,7 @@ abstract class AppConfig {
     'FAMILY_WEB_URL',
     defaultValue: '',
   );
-  static const String appVersion = '2.0.0';
+  static const String appVersion = '2.1.0';
 
   // Configurações do Supabase (Ajuste com suas credenciais do projeto)
   static const String supabaseUrl = String.fromEnvironment(

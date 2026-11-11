@@ -16,6 +16,25 @@ class MonitoringModeEntity extends Equatable {
   final int defaultIntervalMinutes;
   final bool isSystemDefault;
 
+  bool get _isShower =>
+      iconKey == 'shower' || name.toLowerCase().contains('banho');
+
+  /// Modo Sono: ativa o tema noturno e a coruja noturna.
+  bool get isSleep => iconKey == 'sleep' || name.toLowerCase().contains('sono');
+
+  bool get isShower => _isShower;
+
+  /// Modo Rotina: o padrão, para onde o app volta depois de um modo
+  /// temporário.
+  bool get isRoutine =>
+      iconKey == 'routine' || name.toLowerCase().contains('rotina');
+
+  /// Modos temporários (Banho, Sono): ao confirmar, o app volta à Rotina.
+  bool get isTemporary => _isShower || isSleep;
+
+  /// Nome curto para a interface: "Rotina padrão" vira "Rotina".
+  String get shortName => isRoutine && isSystemDefault ? 'Rotina' : name;
+
   MonitoringModeEntity copyWith({
     String? id,
     String? name,

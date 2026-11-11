@@ -1,8 +1,8 @@
 name: guardiao
-description: "Guardião - Aplicativo de Proteção Individual e Dead Man's Switch para Idosos e Pessoas Vulneráveis."
+description: "Vigi: aplicativo de segurança assistiva que vigia por você. Dead man's switch para idosos e pessoas que vivem sozinhas."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.1.0+3
 
 environment:
   sdk: ^3.10.4
@@ -40,7 +40,6 @@ dependencies:
   # Storage & Utilities
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.5.2
-  google_fonts: ^6.2.1
   intl: ^0.20.2
   uuid: ^4.5.1
   url_launcher: ^6.3.1
@@ -50,6 +49,7 @@ dependencies:
   home_widget: ^0.9.3
   # Notificações do navegador no painel web da família (VIGI Família)
   web: ^1.1.1
+  geocoding: ^5.0.1
 
 dev_dependencies:
   flutter_test:
@@ -65,3 +65,21 @@ flutter:
   assets:
     - assets/
     - assets/audio/
+
+  # As fontes vão dentro do app: funcionam sem internet desde a primeira
+  # abertura. Licenças (SIL OFL 1.1) em assets/fonts/OFL-*.txt.
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Nunito-Black.ttf
+          weight: 900
+    - family: Atkinson Hyperlegible
+      fonts:
+        - asset: assets/fonts/AtkinsonHyperlegible-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/AtkinsonHyperlegible-Bold.ttf
+          weight: 700

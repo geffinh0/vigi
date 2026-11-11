@@ -1,24 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/app_card.dart';
+import '../../../../core/theme/vigi_palette.dart';
+import '../../../../core/theme/vigi_tokens.dart';
 import '../../../../core/widgets/app_primary_button.dart';
+import '../../../../core/widgets/vigi_dialogs.dart';
+import '../../../../core/widgets/vigi_logo.dart';
 import '../../../../core/widgets/vigi_mascot.dart';
+import '../../../../core/widgets/vigi_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
-/// Tela de login (reutilizada pelo app do idoso e pelo VIGI Família).
+/// E-mail com formato plausível.
+String? validateEmail(String? value) {
+  final email = (value ?? '').trim();
+  if (email.isEmpty) return 'Digite o seu e-mail.';
+  if (!email.contains('@') || !email.contains('.')) {
+    return 'Confira o e-mail. Exemplo: maria@email.com';
+  }
+  return null;
+}
+
+/// Tela de login (usada pelo app da pessoa acompanhada e pelo Vigi Família).
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
-    this.title = 'VIGI',
-    this.subtitle = 'Proteção e tranquilidade para quem você ama',
+    this.familyEdition = false,
+    this.subtitle = 'Alguém de olho por você, sem ser intrusivo.',
   });
 
-  final String title;
+  /// Mostra a assinatura "Família" (painel web do familiar).
+  final bool familyEdition;
   final String subtitle;
 
   @override
@@ -51,18 +65,12 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
+
     return Scaffold(
-      backgroundColor: AppColors.linho,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.panico,
-              ),
-            );
-          }
+          if (state is AuthFailure) showVigiMessage(context, state.message);
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
@@ -70,123 +78,100 @@ class _LoginPageState extends State<LoginPage> {
           return SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Center(
-                        child: VigiMascot(
-                          state: VigiState.normal,
-                          size: 110,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.title,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.h1.copyWith(
-                          color: AppColors.petroleo,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.subtitle,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.cinzaTexto,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Entrar na sua conta',
-                              style: AppTypography.h3.copyWith(
-                                color: AppColors.petroleo,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                labelText: 'E-mail',
-                                hintText: 'seu@email.com',
-                                prefixIcon: Icon(
-                                  Icons.email_outlined,
-                                  color: AppColors.petroleo,
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Informe seu e-mail';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'E-mail inválido';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: 'Senha',
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline,
-                                  color: AppColors.petroleo,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                    color: AppColors.cinzaTexto,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Informe sua senha';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            AppPrimaryButton(
-                              text: 'Entrar',
-                              isLoading: isLoading,
-                              onPressed: _onSignIn,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      TextButton(
-                        onPressed: () => context.push('/register'),
-                        child: Text(
-                          'Ainda não tem conta? Criar conta',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.petroleo,
-                            fontWeight: FontWeight.w600,
+                padding: const EdgeInsets.all(VigiSpace.screen),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Form(
+                    key: _formKey,
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: VigiSymbol(size: 96),
                           ),
-                        ),
+                          const SizedBox(height: VigiSpace.x2),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const VigiLogo(height: 56),
+                              if (widget.familyEdition) ...[
+                                const SizedBox(width: VigiSpace.x3),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    'Família',
+                                    style: AppTypography.h2.copyWith(
+                                      color: palette.text,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: VigiSpace.x3),
+                          Text(
+                            widget.subtitle,
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: palette.text,
+                            ),
+                          ),
+                          const SizedBox(height: VigiSpace.block),
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              'Entrar na sua conta',
+                              style: AppTypography.h2.copyWith(
+                                color: palette.text,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: VigiSpace.x4),
+                          VigiTextField(
+                            label: 'E-mail',
+                            hint: 'maria@email.com',
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            validator: validateEmail,
+                          ),
+                          const SizedBox(height: VigiSpace.x4),
+                          VigiTextField(
+                            label: 'Senha',
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.password],
+                            onFieldSubmitted: (_) => _onSignIn(),
+                            suffixIcon: _PasswordToggle(
+                              obscured: _obscurePassword,
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                            ),
+                            validator: (value) => (value ?? '').isEmpty
+                                ? 'Digite a sua senha.'
+                                : null,
+                          ),
+                          const SizedBox(height: VigiSpace.x6),
+                          AppPrimaryButton(
+                            text: 'Entrar',
+                            isLoading: isLoading,
+                            onPressed: _onSignIn,
+                          ),
+                          const SizedBox(height: VigiSizes.touchGap),
+                          AppPrimaryButton(
+                            text: 'Criar conta',
+                            variant: AppButtonVariant.outline,
+                            onPressed: isLoading
+                                ? null
+                                : () => context.push('/register'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -197,3 +182,29 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+/// Mostrar ou ocultar a senha: ícone universal, com rótulo para o leitor
+/// de tela.
+class _PasswordToggle extends StatelessWidget {
+  const _PasswordToggle({required this.obscured, required this.onPressed});
+
+  final bool obscured;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: obscured ? 'Mostrar a senha' : 'Ocultar a senha',
+      icon: Icon(
+        obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+      ),
+      onPressed: onPressed,
+    );
+  }
+}
+
+/// Botão de mostrar a senha, compartilhado com a tela de cadastro.
+Widget passwordToggle({
+  required bool obscured,
+  required VoidCallback onPressed,
+}) => _PasswordToggle(obscured: obscured, onPressed: onPressed);

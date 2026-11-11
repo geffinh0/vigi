@@ -73,7 +73,7 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       (failure) => emit(FamilyFailure(failure.message)),
       (name) => emit(
         FamilyActionSuccess(
-          'Pedido enviado! Agora ${name.isEmpty ? 'a pessoa' : name} '
+          'Pedido enviado. Agora ${name.isEmpty ? 'a pessoa' : name} '
           'precisa tocar em "Permitir" no celular dela.',
         ),
       ),

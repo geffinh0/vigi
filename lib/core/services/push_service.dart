@@ -42,13 +42,13 @@ class PushService {
     } catch (_) {}
 
     // Com o app aberto o Android não exibe o push sozinho: exibimos no canal
-    // de alerta de alta prioridade.
+    // de pedidos de ajuda.
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
       final notification = message.notification;
       if (notification == null) return;
       unawaited(
-        notificationService.showTimeoutAlert(
-          title: notification.title ?? 'ALERTA VIGI',
+        notificationService.showFamilyAlert(
+          title: notification.title ?? 'Vigi',
           body: notification.body ?? '',
         ),
       );

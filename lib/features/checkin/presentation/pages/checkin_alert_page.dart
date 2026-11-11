@@ -1,117 +1,257 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/services/checkin_messages.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/vigi_palette.dart';
+import '../../../../core/theme/vigi_state.dart';
+import '../../../../core/theme/vigi_tokens.dart';
+import '../../../../core/utils/vigi_text.dart';
+import '../../../../core/widgets/alert_active_view.dart';
 import '../../../../core/widgets/app_primary_button.dart';
+import '../../../../core/widgets/pinned_actions_layout.dart';
+import '../../../../core/widgets/status_ring.dart';
 import '../../../../core/widgets/vigi_mascot.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../contacts/presentation/bloc/contacts_bloc.dart';
+import '../../../contacts/presentation/bloc/contacts_state.dart';
 import '../bloc/checkin_bloc.dart';
 import '../bloc/checkin_event.dart';
 import '../bloc/checkin_state.dart';
 
-/// Tela de alarme em tela cheia: "Estou bem" ou pânico, e o status do aviso aos contatos.
+/// Tela cheia dos degraus urgentes da escada:
+///
+/// - **Sua vez**: "Tudo bem por aí, Lúcia?", com o próximo passo por extenso
+///   e o botão "Estou bem" na metade inferior, onde o polegar alcança.
+/// - **Última chamada**: a mesma tela, mais intensa, com o alarme tocando.
+/// - **Alerta**: os contatos foram avisados.
+///
+/// Dizer que está bem nunca pode ser difícil: um toque, sem confirmação.
 class CheckinAlertPage extends StatelessWidget {
-  const CheckinAlertPage({super.key});
+  const CheckinAlertPage({super.key, this.now});
+
+  /// Relógio injetável para os testes.
+  final DateTime Function()? now;
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Força o usuário a tomar uma ação explícita
-      child: Scaffold(
-        backgroundColor: const Color(
-          0xFF2C0B0E,
-        ), // Vermelho escuro de alto contraste
-        body: BlocListener<CheckinBloc, CheckinState>(
-          listener: (context, state) {
-            if (state is CheckinMonitoring || state is CheckinIdle) {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            }
-          },
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(),
-                  const Center(
-                    child: VigiMascot(
-                      state: VigiState.alerta,
-                      size: 160,
-                      animate: true,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'ALERTA DE CHECK-IN!',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.h1.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  BlocBuilder<CheckinBloc, CheckinState>(
-                    builder: (context, state) => Text(
-                      _statusMessage(state),
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  AppPrimaryButton(
-                    text: 'ESTOU BEM',
-                    icon: Icons.check_circle,
-                    onPressed: () {
-                      context.read<CheckinBloc>().add(
-                        const ConfirmCheckinRequested(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  AppPrimaryButton(
-                    text: 'DISPARAR PÂNICO',
-                    variant: AppButtonVariant.danger,
-                    icon: Icons.emergency,
-                    onPressed: () => context.push('/panic'),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+      // A pessoa responde com um dos botões; "voltar" não esconde a chamada.
+      canPop: false,
+      child: BlocConsumer<CheckinBloc, CheckinState>(
+        listenWhen: (previous, current) =>
+            current is CheckinMonitoring || current is CheckinIdle,
+        listener: (context, state) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
+        buildWhen: (previous, current) =>
+            current is CheckinCalling || current is CheckinAlertActive,
+        builder: (context, state) {
+          if (state is CheckinAlertActive) {
+            return Scaffold(
+              body: AlertActiveView(
+                contactsFound: state.contactsFound,
+                smsSent: state.smsSent,
+                at: state.alertedAt,
+                deliveries: state.deliveries,
+                hasLocation: state.hasLocation,
+                address: state.address,
+                onCancel: () => context.read<CheckinBloc>().add(
+                  const ConfirmCheckinRequested(),
+                ),
               ),
-            ),
-          ),
-        ),
+            );
+          }
+          if (state is CheckinCalling) {
+            return _CallView(state: state, now: now ?? DateTime.now);
+          }
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CallView extends StatefulWidget {
+  const _CallView({required this.state, required this.now});
+
+  final CheckinCalling state;
+  final DateTime Function() now;
+
+  @override
+  State<_CallView> createState() => _CallViewState();
+}
+
+class _CallViewState extends State<_CallView> {
+  Timer? _clock;
+  bool _lastMinute = false;
+  bool? _announcedLastCall;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _checkTime());
+    _checkTime();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _announce();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CallView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _announce();
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  void _checkTime() {
+    final left = widget.state.escalatesAt.difference(widget.now());
+    final lastMinute = left <= const Duration(minutes: 1);
+    if (lastMinute != _lastMinute && mounted) {
+      setState(() => _lastMinute = lastMinute);
+    }
+  }
+
+  String get _firstName {
+    final auth = context.read<AuthBloc>().state;
+    return auth is AuthAuthenticated
+        ? VigiText.firstName(auth.user.fullName)
+        : '';
+  }
+
+  List<String> get _contactNames {
+    final contacts = context.read<ContactsBloc>().state;
+    return contacts is ContactsLoaded
+        ? contacts.contacts.map((c) => c.name).toList()
+        : const [];
+  }
+
+  String get _question => widget.state.lastCall
+      ? CheckinMessages.lastCallTitle(_firstName)
+      : CheckinMessages.question(_firstName);
+
+  String get _consequence =>
+      CheckinMessages.consequence(widget.state.escalatesAt, _contactNames);
+
+  /// A chamada é anunciada sozinha pelo leitor de tela ao entrar no estado.
+  void _announce() {
+    if (_announcedLastCall == widget.state.lastCall) return;
+    _announcedLastCall = widget.state.lastCall;
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        '$_question $_consequence',
+        TextDirection.ltr,
+        assertiveness: Assertiveness.assertive,
       ),
     );
   }
 
-  String _statusMessage(CheckinState state) {
-    const base =
-        'O tempo limite para confirmação de presença expirou. O alarme continuará soando até sua confirmação.';
-    if (state is! CheckinAlertActive) return base;
-    if (state.contactsAlerted) {
-      final found = state.contactsFound ?? 0;
-      final sent = state.smsSent ?? 0;
-      if (found == 0) {
-        return 'Nenhum contato de emergência cadastrado para ser avisado. Toque em "Estou bem" se estiver tudo certo.';
-      }
-      return sent > 0
-          ? 'Seus contatos de emergência foram avisados por SMS com sua localização ($sent de $found). Toque em "Estou bem" se estiver tudo certo.'
-          : 'Não foi possível enviar o SMS automaticamente. Toque em "Estou bem" se estiver tudo certo.';
-    }
-    if (state.escalatesAt != null) {
-      return '$base Sem resposta, seus contatos de emergência serão avisados às '
-          '${state.escalatesAt!.hour.toString().padLeft(2, '0')}:'
-          '${state.escalatesAt!.minute.toString().padLeft(2, '0')}:'
-          '${state.escalatesAt!.second.toString().padLeft(2, '0')}.';
-    }
-    return base;
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final vigiState = state.vigiState;
+    final style = VigiStateStyle.of(vigiState);
+    final duration = context.reduceMotion
+        ? Duration.zero
+        : VigiMotion.stateChange;
+
+    return AnimatedContainer(
+      duration: duration,
+      curve: VigiMotion.stateCurve,
+      color: style.background,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: PinnedActionsLayout(
+          content: [
+            const SizedBox(height: VigiSpace.x6),
+            Center(
+              child: StatusRing(
+                progress: 1,
+                state: vigiState,
+                size: 200,
+                // No último minuto o anel ganha uma borda Sinal: é o único
+                // momento em que Âmbar e vermelho aparecem juntos.
+                color: _lastMinute ? VigiColors.sinal500 : null,
+                fillColor: style.background,
+                trackColor: style.ring,
+                child: VigiMascot(state: vigiState),
+              ),
+            ),
+            const SizedBox(height: VigiSpace.x8),
+            Semantics(
+              header: true,
+              child: Text(
+                _question,
+                textAlign: TextAlign.center,
+                style: AppTypography.h1.copyWith(color: style.onBackground),
+              ),
+            ),
+            const SizedBox(height: VigiSpace.x3),
+            Text(
+              _consequence,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyLarge.copyWith(
+                color: style.onBackground,
+              ),
+            ),
+          ],
+          actions: [
+            AppPrimaryButton(
+              text: 'Estou bem',
+              // Sobre o Âmbar 300 da última chamada, o botão passa a
+              // Petróleo para continuar impossível de errar.
+              variant: state.lastCall
+                  ? AppButtonVariant.primary
+                  : AppButtonVariant.amber,
+              size: AppButtonSize.call,
+              semanticsHint: 'Confirma que está tudo bem',
+              onPressed: () => context.read<CheckinBloc>().add(
+                const ConfirmCheckinRequested(),
+              ),
+            ),
+            if (state.canSnooze) ...[
+              const SizedBox(height: VigiSizes.touchGap),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: style.onBackground,
+                  minimumSize: const Size.fromHeight(VigiSizes.touch),
+                ),
+                onPressed: () => context.read<CheckinBloc>().add(
+                  const SnoozeCheckinRequested(),
+                ),
+                child: Text(
+                  'Preciso de mais 10 minutos',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.label.copyWith(
+                    color: style.onBackground,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

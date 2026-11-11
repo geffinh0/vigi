@@ -1,69 +1,112 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'app_colors.dart';
-
-/// Tokens de tipografia centralizados.
+/// Tipografia do Vigi (Guia de Design, seção 6).
 ///
-/// - **Corpo/UI:** Atkinson Hyperlegible (legibilidade para baixa visão).
-/// - **Títulos/Logo:** Nunito (arredondada, acolhedora).
+/// - **Nunito** para títulos, números grandes e o logotipo.
+/// - **Atkinson Hyperlegible** para todo o resto: foi desenhada pelo Braille
+///   Institute para pessoas com baixa visão, com letras que não se confundem.
+///
+/// As fontes vão dentro do app (`assets/fonts`), então funcionam sem internet
+/// desde a primeira abertura.
+///
+/// Os estilos não fixam cor: herdam a cor do tema (claro ou noturno). Nenhum
+/// texto do app pode ficar abaixo de 14 sp ([caption]).
 abstract final class AppTypography {
-  // ── Títulos — Nunito ─────────────────────────────────────────────
-  static TextStyle get h1 => GoogleFonts.nunito(
+  static const String titleFamily = 'Nunito';
+  static const String bodyFamily = 'Atkinson Hyperlegible';
+
+  /// Algarismos tabulares: números que mudam (contador, horários) não
+  /// "dançam" a cada segundo.
+  static const List<FontFeature> tabular = [FontFeature.tabularFigures()];
+
+  /// Tempo restante dentro do anel.
+  static const TextStyle display = TextStyle(
+    fontFamily: titleFamily,
+    fontSize: 56,
+    height: 60 / 56,
+    fontWeight: FontWeight.w800,
+    fontFeatures: tabular,
+  );
+
+  /// Pergunta principal ("Tudo bem por aí?").
+  static const TextStyle h1 = TextStyle(
+    fontFamily: titleFamily,
     fontSize: 32,
-    fontWeight: FontWeight.bold,
-    color: AppColors.petroleo,
-    height: 1.2,
+    height: 40 / 32,
+    fontWeight: FontWeight.w800,
   );
 
-  static TextStyle get h2 => GoogleFonts.nunito(
-    fontSize: 24,
+  /// Título de tela.
+  static const TextStyle h2 = TextStyle(
+    fontFamily: titleFamily,
+    fontSize: 26,
+    height: 34 / 26,
     fontWeight: FontWeight.w700,
-    color: AppColors.petroleo,
-    height: 1.25,
   );
 
-  static TextStyle get h3 => GoogleFonts.nunito(
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-    color: AppColors.petroleo,
-    height: 1.3,
+  /// Título de card e seção.
+  static const TextStyle h3 = TextStyle(
+    fontFamily: titleFamily,
+    fontSize: 21,
+    height: 28 / 21,
+    fontWeight: FontWeight.w700,
   );
 
-  // ── Corpo — Atkinson Hyperlegible ────────────────────────────────
-  static TextStyle get bodyLarge => GoogleFonts.atkinsonHyperlegible(
+  /// Texto padrão.
+  static const TextStyle bodyLarge = TextStyle(
+    fontFamily: bodyFamily,
+    fontSize: 18,
+    height: 28 / 18,
+    fontWeight: FontWeight.w400,
+  );
+
+  /// Texto de apoio.
+  static const TextStyle bodyMedium = TextStyle(
+    fontFamily: bodyFamily,
     fontSize: 16,
-    fontWeight: FontWeight.normal,
-    color: AppColors.petroleo,
-    height: 1.5,
+    height: 24 / 16,
+    fontWeight: FontWeight.w400,
   );
 
-  static TextStyle get bodyMedium => GoogleFonts.atkinsonHyperlegible(
+  /// Botões.
+  static const TextStyle label = TextStyle(
+    fontFamily: bodyFamily,
+    fontSize: 18,
+    height: 24 / 18,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// Mínimo absoluto: horários e metadados.
+  static const TextStyle caption = TextStyle(
+    fontFamily: bodyFamily,
     fontSize: 14,
-    fontWeight: FontWeight.normal,
-    color: AppColors.cinzaTexto,
-    height: 1.4,
+    height: 20 / 14,
+    fontWeight: FontWeight.w400,
   );
 
-  static TextStyle get bodySmall => GoogleFonts.atkinsonHyperlegible(
-    fontSize: 12,
-    fontWeight: FontWeight.normal,
-    color: AppColors.cinzaTexto,
-    height: 1.4,
-  );
+  /// Apelido de [label], mantido para o código anterior ao guia.
+  static const TextStyle button = label;
 
-  // ── Componentes & Botões ─────────────────────────────────────────
-  static TextStyle get button => GoogleFonts.atkinsonHyperlegible(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-    color: AppColors.petroleo,
-    letterSpacing: 0.5,
-  );
-
-  static TextStyle get caption => GoogleFonts.atkinsonHyperlegible(
-    fontSize: 11,
-    fontWeight: FontWeight.w500,
-    color: AppColors.cinzaTexto,
-    letterSpacing: 0.3,
-  );
+  /// Tema de texto do Material montado a partir da escala acima.
+  static TextTheme textTheme(Color color, Color muted) {
+    TextStyle c(TextStyle s, [Color? override]) =>
+        s.copyWith(color: override ?? color);
+    return TextTheme(
+      displayLarge: c(display),
+      displayMedium: c(display),
+      displaySmall: c(h1),
+      headlineLarge: c(h1),
+      headlineMedium: c(h2),
+      headlineSmall: c(h3),
+      titleLarge: c(h2),
+      titleMedium: c(h3),
+      titleSmall: c(label),
+      bodyLarge: c(bodyLarge),
+      bodyMedium: c(bodyMedium),
+      bodySmall: c(caption, muted),
+      labelLarge: c(label),
+      labelMedium: c(caption),
+      labelSmall: c(caption, muted),
+    );
+  }
 }

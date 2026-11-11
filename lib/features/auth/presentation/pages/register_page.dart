@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/app_card.dart';
+import '../../../../core/theme/vigi_palette.dart';
+import '../../../../core/theme/vigi_tokens.dart';
 import '../../../../core/widgets/app_primary_button.dart';
+import '../../../../core/widgets/vigi_dialogs.dart';
+import '../../../../core/widgets/vigi_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'login_page.dart';
 
 /// Tela de cadastro de conta.
 class RegisterPage extends StatefulWidget {
@@ -51,146 +54,120 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
+
     return Scaffold(
-      backgroundColor: AppColors.linho,
       appBar: AppBar(
-        title: const Text('Criar Conta'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.petroleo),
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.panico,
-              ),
-            );
-          }
+          if (state is AuthFailure) showVigiMessage(context, state.message);
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
 
           return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Junte-se ao VIGI',
-                      style: AppTypography.h2.copyWith(
-                        color: AppColors.petroleo,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Preencha seus dados para iniciar seu monitoramento seguro',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.cinzaTexto,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    AppCard(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  VigiSpace.screen,
+                  0,
+                  VigiSpace.screen,
+                  VigiSpace.screen,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Form(
+                    key: _formKey,
+                    child: AutofillGroup(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          TextFormField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nome Completo',
-                              prefixIcon: Icon(
-                                Icons.person_outline,
-                                color: AppColors.petroleo,
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              'Criar sua conta no Vigi',
+                              style: AppTypography.h2.copyWith(
+                                color: palette.text,
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Informe seu nome completo';
-                              }
-                              return null;
-                            },
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
+                          const SizedBox(height: VigiSpace.x2),
+                          Text(
+                            'Leva um minuto. Depois você escolhe quem deve '
+                            'ser avisado.',
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: palette.text,
+                            ),
+                          ),
+                          const SizedBox(height: VigiSpace.x6),
+                          VigiTextField(
+                            label: 'Nome',
+                            hint: 'Como você gosta de ser chamado',
+                            controller: _nameController,
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.name],
+                            validator: (value) => (value ?? '').trim().isEmpty
+                                ? 'Digite o seu nome.'
+                                : null,
+                          ),
+                          const SizedBox(height: VigiSpace.x4),
+                          VigiTextField(
+                            label: 'E-mail',
+                            hint: 'maria@email.com',
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'E-mail',
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: AppColors.petroleo,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Informe seu e-mail';
-                              }
-                              if (!value.contains('@')) {
-                                return 'E-mail inválido';
-                              }
-                              return null;
-                            },
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            validator: validateEmail,
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
+                          const SizedBox(height: VigiSpace.x4),
+                          VigiTextField(
+                            label: 'Telefone com DDD (opcional)',
+                            hint: '(11) 98765-4321',
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              labelText: 'Telefone com DDD (opcional)',
-                              hintText: '(11) 98765-4321',
-                              prefixIcon: Icon(
-                                Icons.phone_outlined,
-                                color: AppColors.petroleo,
-                              ),
-                            ),
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [
+                              AutofillHints.telephoneNumber,
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          TextFormField(
+                          const SizedBox(height: VigiSpace.x4),
+                          VigiTextField(
+                            label: 'Senha',
+                            helper: 'Pelo menos 6 caracteres',
                             controller: _passwordController,
                             obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Senha (mínimo 6 caracteres)',
-                              prefixIcon: const Icon(
-                                Icons.lock_outline,
-                                color: AppColors.petroleo,
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: AppColors.cinzaTexto,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.newPassword],
+                            onFieldSubmitted: (_) => _onSignUp(),
+                            suffixIcon: passwordToggle(
+                              obscured: _obscurePassword,
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
                               ),
                             ),
-                            validator: (value) {
-                              if (value == null || value.length < 6) {
-                                return 'A senha deve ter no mínimo 6 caracteres';
-                              }
-                              return null;
-                            },
+                            validator: (value) => (value ?? '').length < 6
+                                ? 'A senha precisa de pelo menos 6 caracteres.'
+                                : null,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: VigiSpace.x6),
                           AppPrimaryButton(
-                            text: 'Criar Minha Conta',
+                            text: 'Criar conta',
                             isLoading: isLoading,
                             onPressed: _onSignUp,
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

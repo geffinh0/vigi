@@ -109,23 +109,44 @@ class CheckinRepositoryImpl implements CheckinRepository {
   Future<Either<Failure, void>> confirmCheckin({
     double? latitude,
     double? longitude,
+    int? intervalMinutes,
+    String? modeId,
+    bool resolvesAlert = false,
   }) async {
     try {
-      final currentStatus = await remoteDataSource.getStatus();
-      final nextDeadline = clock.now().add(
-        Duration(minutes: currentStatus.intervalMinutes),
-      );
-
+      var interval = intervalMinutes;
+      if (interval == null) {
+        final currentStatus = await remoteDataSource.getStatus();
+        interval = currentStatus.intervalMinutes;
+      }
+      final nextDeadline = clock.now().add(Duration(minutes: interval));
       await remoteDataSource.confirmCheckin(
         nextDeadline: nextDeadline,
         latitude: latitude,
         longitude: longitude,
+        intervalMinutes: intervalMinutes,
+        modeId: modeId,
+        resolvesAlert: resolvesAlert,
       );
       return const Right(null);
     } on AuthException catch (e) {
       return Left(AuthFailure(e.message));
     } on PostgrestException catch (e) {
       return Left(ServerFailure('Erro ao confirmar check-in: ${e.message}'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> extendDeadline(DateTime newDeadline) async {
+    try {
+      await remoteDataSource.extendDeadline(newDeadline);
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on PostgrestException catch (e) {
+      return Left(ServerFailure('Erro ao adiar o check-in: ${e.message}'));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

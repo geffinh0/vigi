@@ -2,6 +2,9 @@ import 'package:home_widget/home_widget.dart';
 
 /// Interface para sincronização de dados e estado com o widget de tela inicial.
 abstract class WidgetSyncService {
+  /// [vigiState] é o nome do degrau da escada (`VigiState.name`):
+  /// `descansando`, `vigiando`, `noturno`, `suaVez`, `ultimaChamada` ou
+  /// `alerta`.
   Future<void> updateWidgetData({
     required String vigiState,
     required int minutesRemaining,
@@ -32,10 +35,11 @@ class WidgetSyncServiceImpl implements WidgetSyncService {
     String? statusDisplay,
   }) async {
     try {
-      final formattedTime =
-          timeDisplay ?? (isMonitoring ? '$minutesRemaining min' : 'Pausado');
+      // O widget mostra o horário absoluto do próximo check-in ("15:00"):
+      // não precisa ser atualizado a cada segundo.
+      final formattedTime = timeDisplay ?? (isMonitoring ? '' : 'Descansando');
       final formattedStatus =
-          statusDisplay ?? (isMonitoring ? modeName : 'VIGI');
+          statusDisplay ?? (isMonitoring ? 'próximo check-in' : 'Vigi');
 
       await HomeWidget.saveWidgetData<String>('vigi_state', vigiState);
       await HomeWidget.saveWidgetData<int>(

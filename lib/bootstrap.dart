@@ -7,9 +7,24 @@ import 'app/config/app_config.dart';
 import 'core/services/emergency_dispatcher.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
+import 'core/services/secure_local_storage.dart';
 import 'core/services/widget_background_handler.dart';
 import 'core/utils/logger.dart';
 import 'injection/injection_container.dart' as di;
+
+/// Onde a sessão do Supabase fica guardada: no armazenamento seguro do
+/// sistema (Keystore no Android, Keychain no iOS). Na web o navegador não
+/// oferece equivalente, então vale o padrão do SDK.
+LocalStorage? _sessionStorage(String supabaseUrl) {
+  if (kIsWeb) return null;
+  final key = 'sb-${Uri.parse(supabaseUrl).host.split('.').first}-auth-token';
+  return SecureLocalStorage(
+    persistSessionKey: key,
+    // Mesma chave que o SDK usava em SharedPreferences: quem já estava
+    // logado continua logado depois de atualizar o app.
+    legacy: SharedPreferencesLocalStorage(persistSessionKey: key),
+  );
+}
 
 /// Função de bootstrap que inicializa bindings, injeção e tratamento de erros.
 Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
@@ -37,6 +52,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
         url: AppConfig.supabaseUrl,
         // ignore: deprecated_member_use -- compatibilidade com supabase_flutter v2
         anonKey: AppConfig.supabasePublishableKey,
+        authOptions: FlutterAuthClientOptions(
+          localStorage: _sessionStorage(AppConfig.supabaseUrl),
+        ),
       );
     }
   } catch (e, stack) {

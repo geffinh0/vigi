@@ -1,31 +1,113 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-/// Serviço responsável pelo gerenciamento dos canais de notificação local
-/// do VIGI (Canal 1: Lembrete gentil / Canal 2: Alerta de emergência).
+import '../utils/vigi_text.dart';
+import 'checkin_messages.dart';
+
+/// Ações que a pessoa pode tocar direto na notificação, sem abrir o app.
+enum NotificationAction {
+  /// "Estou bem": confirma o check-in.
+  confirm('estou_bem'),
+
+  /// "+10 min": estende o prazo, uma vez por ciclo.
+  snooze('mais_10')
+  ;
+
+  const NotificationAction(this.id);
+  final String id;
+
+  static NotificationAction? fromId(String? id) {
+    for (final action in values) {
+      if (action.id == id) return action;
+    }
+    return null;
+  }
+}
+
+/// Notificações locais do Vigi, uma por degrau da escada de estados:
+///
+/// - **Vigília**: notificação discreta e persistente enquanto o Vigi vigia.
+/// - **Chamada** ("Sua vez"): pergunta gentil com o botão "Estou bem".
+/// - **Última chamada**: alarme em tela cheia, que toca até ser respondido.
+/// - **Alerta**: avisa que os contatos foram acionados.
+///
+/// A chamada e a última chamada são agendadas no sistema (AlarmManager), então
+/// tocam mesmo com o app fechado ou o celular em suspensão profunda.
 class NotificationService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final StreamController<NotificationAction> _actions =
+      StreamController<NotificationAction>.broadcast();
 
-  static const String channelIdLembrete = 'lembrete_checkin';
-  static const String channelNameLembrete = 'Lembretes de Check-in';
-  static const String channelDescLembrete =
-      'Avisos prévios para confirmação de presença na rotina.';
+  // ── Canais ────────────────────────────────────────────────────────
+  static const String channelIdVigilia = 'lembrete_checkin';
+  static const String channelNameVigilia = 'Vigília em andamento';
+  static const String channelDescVigilia =
+      'Aviso discreto enquanto o Vigi está de olho, com o horário do '
+      'próximo check-in.';
 
+  static const String channelIdChamada = 'vigi_chamada';
+  static const String channelNameChamada = 'Chamada de check-in';
+  static const String channelDescChamada =
+      'O Vigi pergunta se está tudo bem quando chega a hora do check-in.';
+
+  static const String channelIdUltimaChamada = 'vigi_ultima_chamada';
+  static const String channelNameUltimaChamada = 'Última chamada';
+  static const String channelDescUltimaChamada =
+      'Alarme dos minutos finais antes de o Vigi avisar seus contatos.';
+
+  /// Mantém o identificador antigo: o push para familiares usa este canal.
   static const String channelIdAlerta = 'alerta_checkin';
-  static const String channelNameAlerta = 'Alerta de Check-in Expirado';
+  static const String channelNameAlerta = 'Pedidos de ajuda';
   static const String channelDescAlerta =
-      'Alarme de alta prioridade quando o tempo de monitoramento é esgotado.';
+      'Avisa quando o Vigi pediu ajuda, por você ou por alguém que você '
+      'acompanha.';
 
-  static const int notificationIdAlerta = 1001;
-  static const int notificationIdLembrete = 1002;
-  static const int notificationIdOngoing = 1000;
+  // ── Identificadores ───────────────────────────────────────────────
+  static const int notificationIdVigilia = 1000;
+  static const int notificationIdChamada = 1001;
+  static const int notificationIdUltimaChamada = 1003;
+  static const int notificationIdAlerta = 1004;
+  static const int notificationIdFamilia = 1005;
 
-  /// Lógica pura para decisão de expiração em background / timeout.
-  /// Testável de forma determinística sem plugins nativos.
+  /// Ícone pequeno da barra de status (silhueta dos olhos da coruja).
+  static const String smallIcon = 'ic_stat_vigi';
+
+  /// Sons em `android/app/src/main/res/raw`.
+  static const String soundChamada = 'vigi_chamada';
+  static const String soundUltimaChamada = 'vigi_ultima_chamada';
+
+  /// Sua vez: dois pulsos curtos (80 ms, pausa de 120 ms, 80 ms).
+  static final Int64List vibrationChamada = Int64List.fromList([
+    0,
+    80,
+    120,
+    80,
+  ]);
+
+  /// Última chamada: pulsos longos (600 ms, pausa de 400 ms).
+  static final Int64List vibrationUltimaChamada = Int64List.fromList([
+    0,
+    600,
+    400,
+    600,
+    400,
+    600,
+  ]);
+
+  /// `Notification.FLAG_INSISTENT`: o som repete até a pessoa responder.
+  static const int _flagInsistent = 4;
+
+  /// Toques nas ações das notificações ("Estou bem", "+10 min").
+  Stream<NotificationAction> get actions => _actions.stream;
+
+  /// Lógica pura para decidir se o prazo já venceu.
   static bool shouldTriggerAlert({
     required DateTime nextDeadline,
     required DateTime currentTime,
@@ -39,14 +121,8 @@ class NotificationService {
       tz.initializeTimeZones();
     } catch (_) {}
 
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+    const androidSettings = AndroidInitializationSettings(smallIcon);
+    const darwinSettings = DarwinInitializationSettings();
 
     const initSettings = InitializationSettings(
       android: androidSettings,
@@ -54,73 +130,131 @@ class NotificationService {
       macOS: darwinSettings,
     );
 
-    await _plugin.initialize(initSettings);
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onResponse,
+    );
 
-    // Criação dos canais e solicitação de permissões no Android
-    final androidPlugin = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
+    final androidPlugin = _android;
+    if (androidPlugin == null) return;
 
-    if (androidPlugin != null) {
-      try {
-        await androidPlugin.requestNotificationsPermission();
-        await androidPlugin.requestExactAlarmsPermission();
-      } catch (_) {}
+    try {
+      await androidPlugin.requestNotificationsPermission();
+      await androidPlugin.requestExactAlarmsPermission();
+    } catch (_) {}
 
-      await androidPlugin.createNotificationChannel(
-        const AndroidNotificationChannel(
-          channelIdLembrete,
-          channelNameLembrete,
-          description: channelDescLembrete,
-          importance: Importance.defaultImportance,
-        ),
-      );
+    await androidPlugin.createNotificationChannel(
+      const AndroidNotificationChannel(
+        channelIdVigilia,
+        channelNameVigilia,
+        description: channelDescVigilia,
+        importance: Importance.low,
+        playSound: false,
+        enableVibration: false,
+      ),
+    );
+    await androidPlugin.createNotificationChannel(
+      AndroidNotificationChannel(
+        channelIdChamada,
+        channelNameChamada,
+        description: channelDescChamada,
+        importance: Importance.high,
+        sound: const RawResourceAndroidNotificationSound(soundChamada),
+        vibrationPattern: vibrationChamada,
+      ),
+    );
+    await androidPlugin.createNotificationChannel(
+      AndroidNotificationChannel(
+        channelIdUltimaChamada,
+        channelNameUltimaChamada,
+        description: channelDescUltimaChamada,
+        importance: Importance.max,
+        sound: const RawResourceAndroidNotificationSound(soundUltimaChamada),
+        vibrationPattern: vibrationUltimaChamada,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      ),
+    );
+    await androidPlugin.createNotificationChannel(
+      const AndroidNotificationChannel(
+        channelIdAlerta,
+        channelNameAlerta,
+        description: channelDescAlerta,
+        importance: Importance.max,
+      ),
+    );
+  }
 
-      await androidPlugin.createNotificationChannel(
-        const AndroidNotificationChannel(
-          channelIdAlerta,
-          channelNameAlerta,
-          description: channelDescAlerta,
-          importance: Importance.max,
-          enableVibration: true,
-          playSound: true,
-        ),
-      );
+  AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
+
+  void _onResponse(NotificationResponse response) {
+    final action = NotificationAction.fromId(response.actionId);
+    if (action != null) _actions.add(action);
+  }
+
+  /// Ação que abriu o app a partir de uma notificação, quando ele estava
+  /// fechado. Devolve `null` se o app foi aberto de outro jeito.
+  Future<NotificationAction?> takeLaunchAction() async {
+    try {
+      final details = await _plugin.getNotificationAppLaunchDetails();
+      if (details == null || !details.didNotificationLaunchApp) return null;
+      return NotificationAction.fromId(details.notificationResponse?.actionId);
+    } catch (_) {
+      return null;
     }
   }
 
-  /// Exibe notificação persistente (Ongoing) enquanto o monitoramento está ativo.
-  /// Isso informa o sistema operacional Android que o processo é um serviço de proteção em execução,
-  /// impedindo que a bateria/sistema encerre o monitoramento quando fechado/minimizado.
+  /// Sem notificações o Vigi não consegue chamar: isso vira um aviso no topo
+  /// da tela inicial.
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      return await _android?.areNotificationsEnabled() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> requestPermission() async {
+    try {
+      return await _android?.requestNotificationsPermission() ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Vigília ───────────────────────────────────────────────────────
+
+  /// Notificação persistente enquanto o monitoramento está ativo. Informa ao
+  /// Android que há uma proteção em andamento e mostra à pessoa o horário do
+  /// próximo check-in.
   Future<void> showMonitoringOngoing({
     required String modeName,
     required DateTime nextDeadline,
   }) async {
-    final formattedTime =
-        '${nextDeadline.hour.toString().padLeft(2, '0')}:${nextDeadline.minute.toString().padLeft(2, '0')}';
-
     final androidDetails = AndroidNotificationDetails(
-      channelIdLembrete,
-      channelNameLembrete,
-      channelDescription: channelDescLembrete,
+      channelIdVigilia,
+      channelNameVigilia,
+      channelDescription: channelDescVigilia,
       importance: Importance.low,
       priority: Priority.low,
       ongoing: true,
       autoCancel: false,
-      showWhen: true,
+      playSound: false,
+      enableVibration: false,
       when: nextDeadline.millisecondsSinceEpoch,
       usesChronometer: true,
       chronometerCountDown: true,
-      icon: '@mipmap/ic_launcher',
+      icon: smallIcon,
       visibility: NotificationVisibility.public,
     );
 
     try {
       await _plugin.show(
-        notificationIdOngoing,
-        'VIGI Ativo • $modeName',
-        'Próximo check-in às $formattedTime (Proteção ativa)',
+        notificationIdVigilia,
+        'Vigi de olho · $modeName',
+        CheckinMessages.nextCheckin(nextDeadline),
         NotificationDetails(android: androidDetails),
       );
     } catch (_) {}
@@ -128,151 +262,276 @@ class NotificationService {
 
   Future<void> cancelMonitoringOngoing() async {
     try {
-      await _plugin.cancel(notificationIdOngoing);
+      await _plugin.cancel(notificationIdVigilia);
     } catch (_) {}
   }
 
-  /// Agenda um alarme exato a nível de hardware/sistema operacional (AlarmManager).
-  /// Mesmo que o app seja TOTALMENTE FECHADO ou o celular entre em suspensão profunda (Doze Mode),
-  /// o Android acorda o dispositivo no exato segundo agendado para disparar o alarme.
-  Future<void> scheduleTimeoutAlarm(DateTime nextDeadline) async {
-    await cancelScheduledAlarm();
+  // ── Chamada e última chamada ──────────────────────────────────────
 
-    final tzDeadline = tz.TZDateTime.from(nextDeadline, tz.local);
-    final now = tz.TZDateTime.now(tz.local);
-    if (tzDeadline.isBefore(now) || tzDeadline.isAtSameMomentAs(now)) {
-      await showTimeoutAlert();
-      return;
-    }
+  List<AndroidNotificationAction> _callActions(bool canSnooze) => [
+    const AndroidNotificationAction(
+      'estou_bem',
+      'Estou bem',
+      showsUserInterface: true,
+    ),
+    if (canSnooze)
+      const AndroidNotificationAction(
+        'mais_10',
+        '+10 min',
+        showsUserInterface: true,
+      ),
+  ];
 
-    const androidDetails = AndroidNotificationDetails(
-      channelIdAlerta,
-      channelNameAlerta,
-      channelDescription: channelDescAlerta,
-      importance: Importance.max,
-      priority: Priority.max,
-      category: AndroidNotificationCategory.alarm,
-      icon: '@mipmap/ic_launcher',
-      fullScreenIntent: true,
-      enableVibration: true,
-      playSound: true,
-      ongoing: true,
-      autoCancel: false,
-      visibility: NotificationVisibility.public,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-      ticker: 'Alerta de Check-in Expirado',
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: DarwinNotificationDetails(
+  NotificationDetails _callDetails(
+    CheckinCallInfo info, {
+    bool onlyAlertOnce = false,
+  }) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelIdChamada,
+        channelNameChamada,
+        channelDescription: channelDescChamada,
+        importance: Importance.high,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.reminder,
+        icon: smallIcon,
+        sound: const RawResourceAndroidNotificationSound(soundChamada),
+        vibrationPattern: vibrationChamada,
+        ongoing: true,
+        autoCancel: false,
+        onlyAlertOnce: onlyAlertOnce,
+        visibility: NotificationVisibility.public,
+        styleInformation: BigTextStyleInformation(
+          CheckinMessages.callBody(info.escalatesAt, info.contactNames),
+        ),
+        actions: _callActions(info.canSnooze),
+        ticker: CheckinMessages.question(info.firstName),
+      ),
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
-        presentBadge: true,
+        presentSound: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      ),
+    );
+  }
+
+  NotificationDetails _lastCallDetails(
+    CheckinCallInfo info, {
+    bool onlyAlertOnce = false,
+  }) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelIdUltimaChamada,
+        channelNameUltimaChamada,
+        channelDescription: channelDescUltimaChamada,
+        importance: Importance.max,
+        priority: Priority.max,
+        category: AndroidNotificationCategory.alarm,
+        icon: smallIcon,
+        sound: const RawResourceAndroidNotificationSound(soundUltimaChamada),
+        vibrationPattern: vibrationUltimaChamada,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        additionalFlags: Int32List.fromList([_flagInsistent]),
+        // Ocupa a tela de bloqueio.
+        fullScreenIntent: true,
+        ongoing: true,
+        autoCancel: false,
+        onlyAlertOnce: onlyAlertOnce,
+        visibility: NotificationVisibility.public,
+        styleInformation: BigTextStyleInformation(
+          CheckinMessages.lastCallBody(info.escalatesAt, info.contactNames),
+        ),
+        actions: _callActions(false),
+        ticker: CheckinMessages.lastCallTitle(info.firstName),
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
         presentSound: true,
         interruptionLevel: InterruptionLevel.critical,
       ),
     );
+  }
 
-    try {
-      await _plugin.zonedSchedule(
-        notificationIdAlerta,
-        'ALERTA: CHECK-IN EXPIRADO!',
-        'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
-        tzDeadline,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
+  /// Agenda os dois degraus do próximo ciclo: a chamada no prazo e a última
+  /// chamada nos minutos finais da tolerância.
+  Future<void> scheduleCheckinCall(CheckinCallInfo info) async {
+    await cancelScheduledAlarm();
+
+    final now = tz.TZDateTime.now(tz.local);
+    final callAt = tz.TZDateTime.from(info.deadline, tz.local);
+    final lastCallAt = tz.TZDateTime.from(info.lastCallAt, tz.local);
+
+    if (!callAt.isAfter(now)) {
+      await showCheckinCall(info);
+    } else {
+      await _schedule(
+        id: notificationIdChamada,
+        title: CheckinMessages.question(info.firstName),
+        body: CheckinMessages.callBody(info.escalatesAt, info.contactNames),
+        at: callAt,
+        details: _callDetails(info),
       );
-    } catch (_) {
+    }
+
+    if (lastCallAt.isAfter(now)) {
+      await _schedule(
+        id: notificationIdUltimaChamada,
+        title: CheckinMessages.lastCallTitle(info.firstName),
+        body: CheckinMessages.lastCallBody(
+          info.escalatesAt,
+          info.contactNames,
+        ),
+        at: lastCallAt,
+        details: _lastCallDetails(info),
+      );
+    }
+  }
+
+  Future<void> _schedule({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime at,
+    required NotificationDetails details,
+  }) async {
+    // Alarme exato primeiro; se o sistema negar, cai para os modos que não
+    // exigem a permissão.
+    for (final mode in const [
+      AndroidScheduleMode.alarmClock,
+      AndroidScheduleMode.exactAllowWhileIdle,
+      AndroidScheduleMode.inexactAllowWhileIdle,
+    ]) {
       try {
         await _plugin.zonedSchedule(
-          notificationIdAlerta,
-          'ALERTA: CHECK-IN EXPIRADO!',
-          'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
-          tzDeadline,
-          notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          id,
+          title,
+          body,
+          at,
+          details,
+          androidScheduleMode: mode,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
         );
-      } catch (_) {}
+        return;
+      } catch (_) {
+        // tenta o próximo modo
+      }
     }
+  }
+
+  /// Mostra a chamada agora (o prazo venceu com o app aberto).
+  Future<void> showCheckinCall(CheckinCallInfo info) async {
+    try {
+      await _plugin.show(
+        notificationIdChamada,
+        CheckinMessages.question(info.firstName),
+        CheckinMessages.callBody(info.escalatesAt, info.contactNames),
+        // A notificação agendada pode ter tocado no mesmo instante: não
+        // repete o som.
+        _callDetails(info, onlyAlertOnce: true),
+      );
+    } catch (_) {}
+  }
+
+  /// Mostra a última chamada agora.
+  Future<void> showLastCall(CheckinCallInfo info) async {
+    try {
+      await _plugin.cancel(notificationIdChamada);
+      await _plugin.show(
+        notificationIdUltimaChamada,
+        CheckinMessages.lastCallTitle(info.firstName),
+        CheckinMessages.lastCallBody(info.escalatesAt, info.contactNames),
+        _lastCallDetails(info, onlyAlertOnce: true),
+      );
+    } catch (_) {}
   }
 
   Future<void> cancelScheduledAlarm() async {
     try {
-      await _plugin.cancel(notificationIdAlerta);
+      await _plugin.cancel(notificationIdChamada);
+      await _plugin.cancel(notificationIdUltimaChamada);
     } catch (_) {}
   }
 
-  Future<void> showTimeoutAlert({
-    String title = 'ALERTA: CHECK-IN EXPIRADO!',
-    String body =
-        'Você não confirmou sua presença a tempo. Abra o VIGI para desativar o alarme.',
+  // ── Alerta ────────────────────────────────────────────────────────
+
+  /// Os contatos foram avisados: diz o que foi feito e como cancelar.
+  Future<void> showContactsAlerted({
+    required int notified,
+    required DateTime at,
+    required bool withLocation,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      channelIdAlerta,
-      channelNameAlerta,
-      channelDescription: channelDescAlerta,
-      importance: Importance.max,
-      priority: Priority.max,
-      category: AndroidNotificationCategory.alarm,
-      icon: '@mipmap/ic_launcher',
-      fullScreenIntent: true,
-      enableVibration: true,
-      playSound: true,
-      ongoing: true,
-      autoCancel: false,
-      visibility: NotificationVisibility.public,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
-      ticker: 'Alerta de Check-in Expirado',
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-        interruptionLevel: InterruptionLevel.critical,
-      ),
-    );
-
+    final body =
+        '${CheckinMessages.alertedBody(notified: notified, at: at, withLocation: withLocation)} '
+        'Se está tudo bem, abra o Vigi e cancele o pedido.';
     try {
+      await _plugin.cancel(notificationIdChamada);
+      await _plugin.cancel(notificationIdUltimaChamada);
       await _plugin.show(
         notificationIdAlerta,
-        title,
+        CheckinMessages.alertedTitle,
         body,
-        notificationDetails,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelIdAlerta,
+            channelNameAlerta,
+            channelDescription: channelDescAlerta,
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            icon: smallIcon,
+            fullScreenIntent: true,
+            ongoing: true,
+            autoCancel: false,
+            visibility: NotificationVisibility.public,
+            styleInformation: BigTextStyleInformation(body),
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentSound: true,
+            interruptionLevel: InterruptionLevel.critical,
+          ),
+        ),
       );
-    } catch (_) {
-      const fallbackAndroidDetails = AndroidNotificationDetails(
-        channelIdAlerta,
-        channelNameAlerta,
-        channelDescription: channelDescAlerta,
-        importance: Importance.max,
-        priority: Priority.max,
-        category: AndroidNotificationCategory.alarm,
-        fullScreenIntent: true,
-        enableVibration: true,
-        playSound: true,
-        ongoing: true,
-        autoCancel: false,
-        visibility: NotificationVisibility.public,
-      );
-      await _plugin.show(
-        notificationIdAlerta,
-        title,
-        body,
-        const NotificationDetails(android: fallbackAndroidDetails),
-      );
-    }
+    } catch (_) {}
   }
 
+  /// Push recebido com o app aberto: alguém que a pessoa acompanha pediu
+  /// ajuda (o Android não mostra o push sozinho nesse caso).
+  Future<void> showFamilyAlert({
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await _plugin.show(
+        notificationIdFamilia,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelIdAlerta,
+            channelNameAlerta,
+            channelDescription: channelDescAlerta,
+            importance: Importance.max,
+            priority: Priority.max,
+            icon: smallIcon,
+            visibility: NotificationVisibility.public,
+            styleInformation: BigTextStyleInformation(body),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  /// Remove chamada, última chamada e alerta (a pessoa respondeu).
   Future<void> cancelAlert() async {
     try {
+      await _plugin.cancel(notificationIdChamada);
+      await _plugin.cancel(notificationIdUltimaChamada);
       await _plugin.cancel(notificationIdAlerta);
     } catch (_) {}
   }
+
+  /// Texto do horário para outros serviços (ex.: widget).
+  static String clock(DateTime time) => VigiText.clock(time);
 }

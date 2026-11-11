@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 import '../core/router/go_router_refresh_stream.dart';
-import '../core/theme/app_colors.dart';
+import '../core/theme/vigi_palette.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
@@ -71,8 +71,8 @@ class _FamilyWebAppState extends State<FamilyWebApp> {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginPage(
-            title: 'VIGI Família',
-            subtitle: 'Acompanhe quem você ama, sem invadir a privacidade',
+            familyEdition: true,
+            subtitle: 'Acompanhe quem você ama, sem invadir a privacidade.',
           ),
         ),
         GoRoute(
@@ -91,12 +91,7 @@ class _FamilyWebAppState extends State<FamilyWebApp> {
             builder: (context, auth) {
               if (auth is! AuthAuthenticated) {
                 return const Scaffold(
-                  backgroundColor: AppColors.linho,
-                  body: Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.petroleo,
-                    ),
-                  ),
+                  body: Center(child: CircularProgressIndicator()),
                 );
               }
               return BlocProvider(
@@ -132,14 +127,15 @@ class _FamilyWebAppState extends State<FamilyWebApp> {
     return BlocProvider.value(
       value: _authBloc,
       child: MaterialApp.router(
-        title: 'VIGI Família',
+        title: 'Vigi Família',
         debugShowCheckedModeBanner: false,
         theme: appTheme,
+        darkTheme: vigiNightTheme,
         routerConfig: _router,
         // No computador, o conteúdo fica centralizado com largura de celular
         // (as telas foram desenhadas para leitura fácil em coluna única).
         builder: (context, child) => ColoredBox(
-          color: AppColors.linhoEscuro,
+          color: context.vigi.border,
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 560),

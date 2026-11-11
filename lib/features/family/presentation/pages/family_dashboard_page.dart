@@ -6,45 +6,41 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/browser/browser_notifier.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/vigi_palette.dart';
+import '../../../../core/theme/vigi_tokens.dart';
+import '../../../../core/utils/vigi_text.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_primary_button.dart';
+import '../../../../core/widgets/vigi_dialogs.dart';
+import '../../../../core/widgets/vigi_mascot.dart';
+import '../../../../core/widgets/vigi_text_field.dart';
 import '../../../panic/domain/entities/panic_alert_entity.dart';
 import '../../domain/entities/wellbeing_status.dart';
 import '../cubit/family_dashboard_cubit.dart';
 
-const _verde = Color(0xFF2E7D5B);
-
-String _hhmm(DateTime t, DateTime now) {
+/// Horário de um evento: só a hora se foi hoje, senão com o dia.
+String _when(DateTime t, DateTime now) {
   final l = t.toLocal();
   final n = now.toLocal();
-  final hm =
-      '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
   final sameDay = l.year == n.year && l.month == n.month && l.day == n.day;
-  return sameDay
-      ? hm
-      : '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')} $hm';
-}
-
-String _relative(DateTime t, DateTime now) {
-  final d = now.difference(t);
-  if (d.inMinutes < 1) return 'agora mesmo';
-  if (d.inMinutes < 60) return 'há ${d.inMinutes} min';
-  if (d.inHours < 24) return 'há ${d.inHours} h';
-  return 'há ${d.inDays} dia(s)';
+  if (sameDay) return VigiText.clock(l);
+  return '${l.day.toString().padLeft(2, '0')}/'
+      '${l.month.toString().padLeft(2, '0')} às ${VigiText.clock(l)}';
 }
 
 String _eventLabel(String type) => switch (type) {
   'checkin' => 'Confirmou que está bem',
-  'routine_start' => 'Iniciou o monitoramento',
-  'panic' => 'Acionou o botão de pânico',
+  'routine_start' => 'Começou a vigília',
+  'panic' => 'Pediu ajuda',
   'alert_triggered' => 'Não respondeu ao check-in',
-  'alert_resolved' => 'Cancelou o alerta (está segura)',
-  _ => type,
+  'alert_resolved' => 'Cancelou o pedido de ajuda',
+  _ => 'Atividade registrada',
 };
 
-/// Painel do familiar (VIGI Família): mostra apenas se a pessoa está bem,
-/// o último sinal e o próximo check-in. A localização só aparece em
-/// emergências. Usado no PWA web e também no app Android.
+/// Painel do familiar (Vigi Família). É desenhado para quem acompanha, não
+/// para a pessoa acompanhada: o topo diz em uma frase como ela está; abaixo,
+/// uma linha do tempo do dia. O familiar não vê a localização fora de um
+/// alerta.
 class FamilyDashboardPage extends StatefulWidget {
   const FamilyDashboardPage({super.key, this.onSignOut});
 
@@ -71,7 +67,7 @@ class _FamilyDashboardPageState extends State<FamilyDashboardPage> {
   }
 
   Future<void> _ring(String text) async {
-    BrowserNotifier.show('VIGI: EMERGÊNCIA', text);
+    BrowserNotifier.show('Vigi: pedido de ajuda', text);
     setState(() => _ringing = true);
     try {
       await _player.setReleaseMode(ReleaseMode.loop);
@@ -86,175 +82,123 @@ class _FamilyDashboardPageState extends State<FamilyDashboardPage> {
     } catch (_) {}
   }
 
-  void _showAddDialog() {
-    final controller = TextEditingController();
+  Future<void> _showAddSheet() async {
     final cubit = context.read<FamilyDashboardCubit>();
-    showDialog<void>(
+    final code = await showModalBottomSheet<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.linho,
-        title: Text(
-          'Acompanhar uma pessoa',
-          style: AppTypography.h3.copyWith(color: AppColors.petroleo),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'No celular da pessoa, abra o VIGI e toque em "Família". '
-              'Digite aqui o código que aparece lá.',
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.cinzaTexto,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 7,
-              style: AppTypography.h2.copyWith(letterSpacing: 4),
-              decoration: const InputDecoration(
-                labelText: 'Código VIGI',
-                hintText: 'K7P-2QX',
-                counterText: '',
-              ),
-              onSubmitted: (_) {
-                Navigator.of(dialogContext).pop();
-                unawaited(cubit.requestLink(controller.text));
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: AppColors.cinzaTexto),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.ambar,
-              foregroundColor: AppColors.petroleo,
-            ),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              unawaited(cubit.requestLink(controller.text));
-            },
-            child: const Text('Enviar pedido'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      builder: (sheetContext) => const _AddPersonSheet(),
     );
+    if (code != null && code.trim().isNotEmpty) {
+      unawaited(cubit.requestLink(code));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
+
     return Scaffold(
-      backgroundColor: AppColors.linho,
       appBar: AppBar(
-        title: const Text('VIGI Família'),
-        actions: [
-          IconButton(
-            tooltip: 'Acompanhar uma pessoa',
-            icon: const Icon(Icons.person_add_alt_1, color: AppColors.petroleo),
-            onPressed: _showAddDialog,
-          ),
-          if (widget.onSignOut != null)
-            IconButton(
-              tooltip: 'Sair',
-              icon: const Icon(Icons.logout, color: AppColors.cinzaTexto),
-              onPressed: widget.onSignOut,
-            ),
-        ],
+        titleSpacing: VigiSpace.screen,
+        title: const Text('Vigi Família'),
       ),
       body: BlocConsumer<FamilyDashboardCubit, FamilyDashboardState>(
         listener: (context, state) {
-          final messenger = ScaffoldMessenger.of(context);
           if (state.errorMessage != null) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: AppColors.panico,
-              ),
-            );
+            showVigiMessage(context, state.errorMessage!);
           } else if (state.infoMessage != null) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(state.infoMessage!),
-                backgroundColor: AppColors.petroleo,
-                duration: const Duration(seconds: 6),
-              ),
-            );
+            showVigiMessage(context, state.infoMessage!);
           }
         },
         builder: (context, state) {
           if (state.loading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.petroleo),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
           final now = state.now ?? DateTime.now();
 
           return BlocListener<FamilyDashboardCubit, FamilyDashboardState>(
             listenWhen: (p, c) => p.alertSignal != c.alertSignal,
-            listener: (context, state) =>
-                _ring(state.alertText ?? 'Emergência detectada'),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    if (_ringing) ...[
-                      _AlarmBanner(
-                        text: state.alertText ?? 'Emergência detectada',
-                        onSilence: _silence,
+            listener: (context, state) => _ring(
+              state.alertText ?? 'Alguém que você acompanha pediu ajuda',
+            ),
+            child: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      VigiSpace.screen,
+                      VigiSpace.x2,
+                      VigiSpace.screen,
+                      VigiSpace.x6,
+                    ),
+                    children: [
+                      if (_ringing) ...[
+                        _AlarmBanner(
+                          text:
+                              state.alertText ??
+                              'Alguém que você acompanha pediu ajuda',
+                          onSilence: _silence,
+                        ),
+                        const SizedBox(height: VigiSpace.x4),
+                      ],
+                      for (final person in state.people) ...[
+                        _PersonCard(person: person, now: now),
+                        const SizedBox(height: VigiSpace.block),
+                      ],
+                      for (final pending in state.pendingRequests) ...[
+                        AppCard(
+                          child: Text(
+                            'Aguardando '
+                            '${VigiText.firstName(pending.monitoredUserName).isEmpty ? 'a pessoa' : VigiText.firstName(pending.monitoredUserName)} '
+                            'aceitar. Peça para tocar em "Permitir" no Vigi '
+                            'do celular.',
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: palette.text,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: VigiSpace.x4),
+                      ],
+                      if (state.people.isEmpty && state.pendingRequests.isEmpty)
+                        const _EmptyState(),
+                      const SizedBox(height: VigiSpace.x4),
+                      AppPrimaryButton(
+                        text: 'Acompanhar uma pessoa',
+                        variant:
+                            state.people.isEmpty &&
+                                state.pendingRequests.isEmpty
+                            ? AppButtonVariant.primary
+                            : AppButtonVariant.outline,
+                        onPressed: _showAddSheet,
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    for (final person in state.people) ...[
-                      _PersonCard(person: person, now: now),
-                      const SizedBox(height: 16),
-                    ],
-                    for (final pending in state.pendingRequests) ...[
-                      AppCard(
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.hourglass_top,
-                              color: AppColors.ambar,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Aguardando '
-                                '${pending.monitoredUserName ?? 'a pessoa'} '
-                                'tocar em "Permitir" no celular dela.',
-                                style: AppTypography.bodyMedium,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: VigiSpace.block),
+                      Text(
+                        'Cuidado, não vigilância: o Vigi não rastreia '
+                        'ninguém. A localização só é compartilhada quando a '
+                        'pessoa pede ajuda ou não responde a um check-in.',
+                        style: AppTypography.caption.copyWith(
+                          color: palette.textMuted,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      if (widget.onSignOut != null) ...[
+                        const SizedBox(height: VigiSpace.x6),
+                        Center(
+                          child: TextButton(
+                            onPressed: widget.onSignOut,
+                            child: Text(
+                              'Sair da conta',
+                              style: AppTypography.label.copyWith(
+                                color: palette.textMuted,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                    if (state.people.isEmpty && state.pendingRequests.isEmpty)
-                      _EmptyState(onAdd: _showAddDialog),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Privacidade: o VIGI não rastreia a localização. Ela só '
-                      'é compartilhada quando a pessoa aciona o pânico ou não '
-                      'responde a um check-in.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.cinzaTexto,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -265,6 +209,86 @@ class _FamilyDashboardPageState extends State<FamilyDashboardPage> {
   }
 }
 
+/// Folha "Acompanhar uma pessoa": o familiar digita o código de convite.
+class _AddPersonSheet extends StatefulWidget {
+  const _AddPersonSheet();
+
+  @override
+  State<_AddPersonSheet> createState() => _AddPersonSheetState();
+}
+
+class _AddPersonSheetState extends State<_AddPersonSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.vigi;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          VigiSpace.screen,
+          0,
+          VigiSpace.screen,
+          VigiSpace.x6 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                'Acompanhar uma pessoa',
+                style: AppTypography.h2.copyWith(color: palette.text),
+              ),
+            ),
+            const SizedBox(height: VigiSpace.x2),
+            Text(
+              'Peça para a pessoa abrir o Vigi, tocar em Pessoas e depois em '
+              '"Convidar a família". O código de 6 letras aparece lá.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: palette.textMuted,
+              ),
+            ),
+            const SizedBox(height: VigiSpace.x6),
+            VigiTextField(
+              label: 'Código de convite',
+              hint: 'K7P-2QX',
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 7,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              style: AppTypography.h2.copyWith(
+                color: palette.text,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: VigiSpace.x6),
+            AppPrimaryButton(text: 'Enviar pedido', onPressed: _submit),
+            const SizedBox(height: VigiSizes.touchGap),
+            AppPrimaryButton(
+              text: 'Cancelar',
+              variant: AppButtonVariant.outline,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Faixa que acompanha o alarme sonoro de um pedido de ajuda novo.
 class _AlarmBanner extends StatelessWidget {
   const _AlarmBanner({required this.text, required this.onSilence});
 
@@ -273,93 +297,88 @@ class _AlarmBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      backgroundColor: AppColors.panico,
-      borderColor: AppColors.panico,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.notifications_active, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  text,
-                  style: AppTypography.h3.copyWith(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white),
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(VigiSpace.x4),
+        decoration: BoxDecoration(
+          color: VigiColors.sinal600,
+          borderRadius: BorderRadius.circular(VigiRadius.md),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              text,
+              style: AppTypography.h3.copyWith(color: VigiColors.branco),
             ),
-            icon: const Icon(Icons.volume_off),
-            label: const Text('Estou ciente — silenciar alarme'),
-            onPressed: onSilence,
-          ),
-        ],
+            const SizedBox(height: VigiSpace.x3),
+            AppPrimaryButton(
+              text: 'Estou ciente, silenciar o alarme',
+              variant: AppButtonVariant.onSignal,
+              onPressed: onSilence,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
-
-  final VoidCallback onAdd;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
+
     Widget step(String n, String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: VigiSpace.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: AppColors.petroleo,
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: palette.chip,
+              shape: BoxShape.circle,
+            ),
             child: Text(
               n,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              textScaler: TextScaler.noScaling,
+              style: AppTypography.label.copyWith(color: palette.text),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: AppTypography.bodyMedium)),
+          const SizedBox(width: VigiSpace.x3),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.bodyLarge.copyWith(color: palette.text),
+            ),
+          ),
         ],
       ),
     );
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Icon(
-            Icons.family_restroom,
-            size: 64,
-            color: AppColors.petroleo,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Você ainda não acompanha ninguém',
-            textAlign: TextAlign.center,
-            style: AppTypography.h3.copyWith(color: AppColors.petroleo),
-          ),
-          const SizedBox(height: 16),
-          step('1', 'No celular da pessoa, abra o VIGI e toque em "Família".'),
-          step('2', 'Digite aqui o código VIGI que aparece na tela dela.'),
-          step('3', 'Ela toca em "Permitir". Pronto!'),
-          const SizedBox(height: 8),
-          AppPrimaryButton(
-            text: 'Acompanhar uma pessoa',
-            icon: Icons.person_add_alt_1,
-            onPressed: onAdd,
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: VigiSymbol(size: 96),
+        ),
+        const SizedBox(height: VigiSpace.x3),
+        Text(
+          'Você ainda não acompanha ninguém',
+          style: AppTypography.h2.copyWith(color: palette.text),
+        ),
+        const SizedBox(height: VigiSpace.x4),
+        step('1', 'No celular da pessoa, abra o Vigi e toque em Pessoas.'),
+        step('2', 'Toque em "Convidar a família" e anote o código.'),
+        step('3', 'Digite o código aqui. A pessoa toca em "Permitir".'),
+      ],
     );
   }
 }
@@ -376,211 +395,227 @@ class _PersonCard extends StatelessWidget {
     } catch (_) {}
   }
 
+  bool _isToday(DateTime? t) {
+    if (t == null) return false;
+    final l = t.toLocal();
+    final n = now.toLocal();
+    return l.year == n.year && l.month == n.month && l.day == n.day;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
     final status = person.status;
     final alert = status.alertEvent;
+    final first = VigiText.firstName(person.name);
+    final lastSignal = status.lastSignal;
+    final deadline = status.nextDeadline;
 
+    // O topo diz em uma frase como a pessoa está.
     final (
-      Color color,
-      IconData icon,
+      VigiState state,
       String title,
       String detail,
     ) = switch (status.level) {
       WellbeingLevel.ok => (
-        _verde,
-        Icons.check_circle,
-        'Está tudo bem',
-        status.nextDeadline != null
-            ? 'Próximo check-in até ${_hhmm(status.nextDeadline!, now)}'
-            : 'Monitoramento ativo',
+        VigiState.vigiando,
+        '$first está bem.',
+        [
+          if (lastSignal != null) 'Confirmou às ${_when(lastSignal, now)}.',
+          if (deadline != null) 'Próximo às ${_when(deadline, now)}.',
+        ].join(' '),
       ),
       WellbeingLevel.late => (
-        AppColors.ambar,
-        Icons.schedule,
-        'Check-in atrasado',
-        'Deveria ter confirmado até '
-            '${_hhmm(status.nextDeadline!, now)}. O alarme está tocando '
-            'no celular; se não houver resposta, os contatos serão avisados.',
+        VigiState.suaVez,
+        '$first ainda não respondeu.',
+        'O check-in era às ${_when(deadline!, now)}. O Vigi está '
+            'chamando no celular; sem resposta, os contatos serão '
+            'avisados.',
       ),
       WellbeingLevel.emergency => (
-        AppColors.panico,
-        status.isPanic ? Icons.emergency : Icons.warning_amber_rounded,
+        VigiState.alerta,
         status.isPanic
-            ? 'PÂNICO acionado às ${_hhmm(alert!.createdAt!, now)}'
-            : 'Não respondeu ao check-in '
-                  '(${_hhmm(alert!.createdAt!, now)})',
-        'Os contatos de emergência foram avisados por SMS. '
-            'Tente falar com a pessoa agora.',
+            ? '$first pediu ajuda às ${_when(alert!.createdAt!, now)}.'
+            : '$first não respondeu ao check-in.',
+        'Os contatos foram avisados por SMS. Tente ligar agora.',
       ),
       WellbeingLevel.paused => (
-        AppColors.cinzaTexto,
-        Icons.pause_circle_filled,
-        'Monitoramento pausado',
-        'A proteção está desligada no celular da pessoa.',
+        VigiState.descansando,
+        'A vigília de $first está pausada.',
+        lastSignal == null
+            ? 'O Vigi não está vigiando agora.'
+            : 'O Vigi não está vigiando agora. Último sinal às '
+                  '${_when(lastSignal, now)}.',
       ),
     };
 
-    final phone = person.link.monitoredUserPhone?.trim();
-    final hasLocation = alert?.latitude != null && alert?.longitude != null;
+    final (Color background, Color foreground) = switch (status.level) {
+      WellbeingLevel.ok => (VigiColors.petroleo800, VigiColors.linho100),
+      WellbeingLevel.late => (VigiColors.ambar100, VigiColors.petroleo800),
+      WellbeingLevel.emergency => (VigiColors.sinal600, VigiColors.branco),
+      WellbeingLevel.paused => (palette.surface, palette.text),
+    };
 
-    return AppCard(
-      borderColor: status.level == WellbeingLevel.emergency ? color : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppColors.petroleo,
-                foregroundColor: AppColors.linho,
-                child: Text(person.name.characters.first.toUpperCase()),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      person.name,
-                      style: AppTypography.h3.copyWith(
-                        color: AppColors.petroleo,
-                      ),
-                    ),
-                    if (person.modeName != null &&
-                        status.level != WellbeingLevel.paused)
-                      Text(
-                        'Modo: ${person.modeName}',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.cinzaTexto,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+    final phone = person.link.monitoredUserPhone?.trim();
+    final hasPhone = phone != null && phone.isNotEmpty;
+    final hasLocation = alert?.latitude != null && alert?.longitude != null;
+    final today = person.recentEvents
+        .where((e) => _isToday(e.createdAt))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(
+            person.name,
+            style: AppTypography.h2.copyWith(color: palette.text),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
+        ),
+        if (person.modeName != null && status.level != WellbeingLevel.paused)
+          Text(
+            'Modo ${person.modeName}',
+            style: AppTypography.bodyMedium.copyWith(color: palette.textMuted),
+          ),
+        const SizedBox(height: VigiSpace.x3),
+        Semantics(
+          liveRegion: status.level == WellbeingLevel.emergency,
+          child: Container(
+            padding: const EdgeInsets.all(VigiSpace.x4),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              color: background,
+              borderRadius: BorderRadius.circular(VigiRadius.md),
+              border: status.level == WellbeingLevel.paused
+                  ? Border.all(color: palette.border)
+                  : null,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: color, size: 40),
-                const SizedBox(width: 12),
+                if (status.level == WellbeingLevel.ok)
+                  const VigiSymbol(size: 56, onPetroleo: true)
+                else
+                  VigiMascot(
+                    state: state,
+                    size: 56,
+                    animate: false,
+                    onSignal: status.level == WellbeingLevel.emergency,
+                  ),
+                const SizedBox(width: VigiSpace.x3),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: AppTypography.h3.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTypography.h3.copyWith(color: foreground),
                       ),
-                      const SizedBox(height: 4),
-                      Text(detail, style: AppTypography.bodyMedium),
+                      if (detail.isNotEmpty) ...[
+                        const SizedBox(height: VigiSpace.x1),
+                        Text(
+                          detail,
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            status.lastSignal == null
-                ? 'Ainda sem sinais registrados'
-                : 'Último sinal: ${_relative(status.lastSignal!, now)} '
-                      '(${_hhmm(status.lastSignal!, now)})',
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.cinzaTexto,
+        ),
+        if (hasLocation) ...[
+          const SizedBox(height: VigiSizes.touchGap),
+          AppPrimaryButton(
+            text: 'Ver onde $first está',
+            icon: Icons.location_on_rounded,
+            onPressed: () => _open(
+              'https://maps.google.com/?q=${alert!.latitude},${alert.longitude}',
             ),
           ),
-          if (hasLocation || (phone != null && phone.isNotEmpty)) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                if (hasLocation)
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.panico,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.location_on),
-                    label: const Text('Ver localização do alerta'),
-                    onPressed: () => _open(
-                      'https://maps.google.com/?q=${alert!.latitude},${alert.longitude}',
-                    ),
-                  ),
-                if (phone != null && phone.isNotEmpty)
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.petroleo,
-                    ),
-                    icon: const Icon(Icons.call),
-                    label: const Text('Ligar'),
-                    onPressed: () => _open('tel:$phone'),
-                  ),
-              ],
-            ),
-          ],
-          if (person.recentEvents.isNotEmpty)
-            Theme(
-              data: Theme.of(
-                context,
-              ).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  'Atividade recente',
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                children: [
-                  for (final e in person.recentEvents)
-                    _EventRow(e: e, now: now),
-                ],
-              ),
-            ),
         ],
-      ),
+        if (hasPhone) ...[
+          const SizedBox(height: VigiSizes.touchGap),
+          AppPrimaryButton(
+            text: 'Ligar para $first',
+            icon: Icons.call_rounded,
+            variant: AppButtonVariant.outline,
+            onPressed: () => _open('tel:$phone'),
+          ),
+        ],
+        const SizedBox(height: VigiSpace.x6),
+        Text('Hoje', style: AppTypography.h3.copyWith(color: palette.text)),
+        const SizedBox(height: VigiSpace.x2),
+        if (today.isEmpty)
+          Text(
+            'Nada registrado hoje ainda.',
+            style: AppTypography.bodyMedium.copyWith(color: palette.textMuted),
+          )
+        else
+          for (final e in today) _EventRow(e: e),
+      ],
     );
   }
 }
 
+/// Uma linha da linha do tempo do dia: horário, marcador e o que aconteceu.
 class _EventRow extends StatelessWidget {
-  const _EventRow({required this.e, required this.now});
+  const _EventRow({required this.e});
 
   final PanicAlertEntity e;
-  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.vigi;
     final isAlert = e.eventType == 'panic' || e.eventType == 'alert_triggered';
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        isAlert ? Icons.warning_amber_rounded : Icons.check,
-        color: isAlert ? AppColors.panico : _verde,
-      ),
-      title: Text(_eventLabel(e.eventType)),
-      trailing: e.createdAt == null
-          ? null
-          : Text(
-              _hhmm(e.createdAt!, now),
-              style: AppTypography.caption.copyWith(
-                color: AppColors.cinzaTexto,
+    final isCheckin = e.eventType == 'checkin';
+    // Nenhum estado é comunicado só por cor: o marcador muda de forma
+    // (cheio, vazado) e o texto diz o que aconteceu.
+    final dotColor = isAlert ? VigiColors.sinal500 : palette.text;
+
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: VigiSpace.x2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 56,
+              child: Text(
+                e.createdAt == null ? '' : VigiText.clockPadded(e.createdAt!),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: palette.textMuted,
+                  fontFeatures: AppTypography.tabular,
+                ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, right: VigiSpace.x3),
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCheckin || isAlert ? dotColor : Colors.transparent,
+                  border: Border.all(color: dotColor, width: 2),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                _eventLabel(e.eventType),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: palette.text,
+                  fontWeight: isAlert ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
