@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_toolkit/golden_toolkit.dart';
 import 'package:guardiao/core/theme/app_colors.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/theme/vigi_tokens.dart';
@@ -153,7 +154,7 @@ void main() {
       ('on_signal', AppButtonVariant.onSignal, AppButtonSize.regular),
     ];
     for (final (name, variant, size) in variants) {
-      testWidgets('golden: $name', (tester) async {
+      testGoldens('golden: $name', (tester) async {
         tester.view.physicalSize = const Size(400, 160);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);

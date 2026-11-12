@@ -137,14 +137,15 @@ class _FamilyPanelPageState extends State<FamilyPanelPage> {
                   )
                 else
                   for (final f in state.followers) ...[
-                    AppCard(
+                    Semantics(
+                      button: true,
+                      label:
+                          '${f.viewerUserName ?? 'Familiar'}, vê se você '
+                          'está bem. Toque para remover.',
                       onTap: () => _confirmRemove(f),
-                      child: Semantics(
-                        button: true,
-                        label:
-                            '${f.viewerUserName ?? 'Familiar'}, vê se você '
-                            'está bem. Toque para remover.',
-                        excludeSemantics: true,
+                      excludeSemantics: true,
+                      child: AppCard(
+                        onTap: () => _confirmRemove(f),
                         child: Row(
                           children: [
                             ContactAvatar(name: f.viewerUserName ?? 'Familiar'),

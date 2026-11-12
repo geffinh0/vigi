@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_toolkit/golden_toolkit.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/theme/vigi_state.dart';
 import 'package:guardiao/core/theme/vigi_tokens.dart';
@@ -92,7 +93,7 @@ void main() {
       ('noturno_30', 0.3, VigiState.noturno, true),
     ];
     for (final (name, progress, state, night) in cases) {
-      testWidgets('golden: $name', (tester) async {
+      testGoldens('golden: $name', (tester) async {
         tester.view.physicalSize = const Size(300, 300);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);

@@ -239,7 +239,10 @@ class _VigiAppState extends State<VigiApp> {
 /// inferior com três itens, com ícone e texto. Acima dela, em lugar fixo e
 /// sempre visível, o botão "Pedir ajuda".
 class VigiHomePage extends StatefulWidget {
-  const VigiHomePage({super.key});
+  const VigiHomePage({super.key, this.now});
+
+  /// Relógio injetável para os testes (a saudação muda com a hora).
+  final DateTime Function()? now;
 
   @override
   State<VigiHomePage> createState() => _VigiHomePageState();
@@ -352,6 +355,7 @@ class _VigiHomePageState extends State<VigiHomePage>
             index: _tab,
             children: [
               HomeTab(
+                now: widget.now,
                 onOpenModes: () => setState(() => _tab = 1),
                 onOpenPeople: () => setState(() => _tab = 2),
               ),

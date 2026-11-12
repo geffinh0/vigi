@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_toolkit/golden_toolkit.dart';
 import 'package:guardiao/core/theme/app_colors.dart';
 import 'package:guardiao/core/theme/app_theme.dart';
 import 'package:guardiao/core/theme/vigi_tokens.dart';
@@ -72,7 +73,7 @@ void main() {
       expect(decorationOf(tester).color, VigiColors.petroleo800);
     });
 
-    testWidgets('golden: card padrão', (tester) async {
+    testGoldens('golden: card padrão', (tester) async {
       tester.view.physicalSize = const Size(400, 120);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);

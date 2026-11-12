@@ -51,6 +51,7 @@ class ContactCard extends StatelessWidget {
       label:
           '${contact.name}${relation.isEmpty ? '' : ', $relation'}, '
           '${contact.phone}. $status.',
+      onTap: onTap,
       excludeSemantics: true,
       child: AppCard(
         onTap: onTap,

@@ -163,6 +163,7 @@ class _ModeChipButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: '$label. Trocar de modo.',
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: palette.chip,

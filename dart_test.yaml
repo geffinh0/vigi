@@ -1,0 +1,4 @@
+# Etiquetas usadas nos testes.
+tags:
+  # Testes que comparam com imagens de referência (pacote golden_toolkit).
+  golden:

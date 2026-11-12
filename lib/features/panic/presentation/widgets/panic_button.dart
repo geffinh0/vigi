@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/services/alarm_service.dart';
@@ -102,7 +103,7 @@ class _PanicButtonState extends State<PanicButton>
     _triggered = false;
   }
 
-  void _onDown(TapDownDetails details) {
+  void _onDown() {
     _lastSecond = 3;
     VigiHaptics.holdTick();
     _hold.forward(from: 0);
@@ -136,28 +137,40 @@ class _PanicButtonState extends State<PanicButton>
       onLongPress: _trigger,
       onTap: widget.onTap,
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: _onDown,
-        onTapUp: (_) => _onRelease(),
-        onTapCancel: _onRelease,
-        child: AnimatedBuilder(
-          animation: _hold,
-          builder: (context, _) {
-            final holding = _hold.value > 0;
-            return widget.style == PanicButtonStyle.large
-                ? _Large(
-                    size: widget.size,
-                    progress: _hold.value,
-                    holding: holding,
-                    secondsLeft: _secondsLeft,
-                  )
-                : _Footer(
-                    progress: _hold.value,
-                    holding: holding,
-                    secondsLeft: _secondsLeft,
-                  );
+      // Eventos de ponteiro diretos, em vez de "toque": para mãos com
+      // tremor, um pequeno movimento do dedo não pode cancelar o gesto nem
+      // virar rolagem da tela.
+      child: Listener(
+        onPointerDown: (_) => _onDown(),
+        onPointerUp: (_) => _onRelease(),
+        onPointerCancel: (_) => _onRelease(),
+        child: RawGestureDetector(
+          behavior: HitTestBehavior.opaque,
+          gestures: <Type, GestureRecognizerFactory>{
+            EagerGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+                  EagerGestureRecognizer.new,
+                  (_) {},
+                ),
           },
+          child: AnimatedBuilder(
+            animation: _hold,
+            builder: (context, _) {
+              final holding = _hold.value > 0;
+              return widget.style == PanicButtonStyle.large
+                  ? _Large(
+                      size: widget.size,
+                      progress: _hold.value,
+                      holding: holding,
+                      secondsLeft: _secondsLeft,
+                    )
+                  : _Footer(
+                      progress: _hold.value,
+                      holding: holding,
+                      secondsLeft: _secondsLeft,
+                    );
+            },
+          ),
         ),
       ),
     );
@@ -286,19 +299,29 @@ class _Footer extends StatelessWidget {
             ),
           ),
           const SizedBox(width: VigiSpace.x3),
+          // Com a fonte ampliada, "segure 3 s" desce para a linha de baixo.
           Expanded(
-            child: Text(
-              holding ? 'Segure… $secondsLeft' : 'Pedir ajuda',
-              style: AppTypography.label.copyWith(
-                color: holding ? VigiColors.sinal700 : palette.text,
-              ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: VigiSpace.x2,
+              children: [
+                Text(
+                  holding ? 'Segure… $secondsLeft' : 'Pedir ajuda',
+                  style: AppTypography.label.copyWith(
+                    color: holding ? VigiColors.sinal700 : palette.text,
+                  ),
+                ),
+                if (!holding)
+                  Text(
+                    'segure 3 s',
+                    style: AppTypography.caption.copyWith(
+                      color: palette.textMuted,
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (!holding)
-            Text(
-              'segure 3 s',
-              style: AppTypography.caption.copyWith(color: palette.textMuted),
-            ),
         ],
       ),
     );

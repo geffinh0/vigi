@@ -169,6 +169,7 @@ class ModeChip extends StatelessWidget {
       label:
           '${mode.shortName}, ${VigiText.remainingSpoken(mode.defaultIntervalMinutes * 60)}'
           '${active ? ', modo ativo' : ''}',
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: active ? palette.fill : palette.surface,
@@ -197,17 +198,27 @@ class ModeChip extends StatelessWidget {
                     size: VigiSizes.icon,
                   ),
                   const SizedBox(width: VigiSpace.x3),
+                  // Com a fonte ampliada, o intervalo desce para a linha
+                  // de baixo em vez de ser cortado.
                   Expanded(
-                    child: Text(
-                      mode.shortName,
-                      style: AppTypography.label.copyWith(color: foreground),
-                    ),
-                  ),
-                  const SizedBox(width: VigiSpace.x2),
-                  Text(
-                    active ? '$interval · ativo' : interval,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: active ? foreground : palette.textMuted,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: VigiSpace.x2,
+                      children: [
+                        Text(
+                          mode.shortName,
+                          style: AppTypography.label.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                        Text(
+                          active ? '$interval · ativo' : interval,
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: active ? foreground : palette.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -231,6 +242,7 @@ class _CreateModeChip extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Criar modo',
+      onTap: onTap,
       excludeSemantics: true,
       child: CustomPaint(
         foregroundPainter: _DashedBorderPainter(color: palette.fieldBorder),

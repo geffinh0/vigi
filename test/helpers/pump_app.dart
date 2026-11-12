@@ -39,6 +39,11 @@ class MockPanicBloc extends MockBloc<PanicEvent, PanicState>
 class MockFamilyBloc extends MockBloc<FamilyEvent, FamilyState>
     implements FamilyBloc {}
 
+/// Contatos ainda não carregados.
+class ContactsInitialForTest extends ContactsInitial {
+  const ContactsInitialForTest();
+}
+
 /// Faixa de saúde com problemas fixos, sem tocar em plugins.
 class FakeHealthCubit extends SystemHealthCubit {
   FakeHealthCubit([List<HealthIssue> issues = const []]) {
@@ -192,6 +197,15 @@ Future<AppBlocs> pumpApp(
   );
   await tester.pump(const Duration(milliseconds: 50));
   return b;
+}
+
+/// Rola até [finder] e toca. A fonte dos testes (Ahem) é mais larga que a
+/// real, então o conteúdo fica mais alto e pode começar fora da tela.
+Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pump();
+  await tester.tap(finder);
+  await tester.pump();
 }
 
 /// Compara com a imagem de referência sem esperar animações infinitas.

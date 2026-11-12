@@ -105,6 +105,7 @@ class AppPrimaryButton extends StatelessWidget {
             dimension: 28,
             child: CircularProgressIndicator(
               strokeWidth: 3,
+              semanticsLabel: '$text, aguarde',
               valueColor: AlwaysStoppedAnimation<Color>(foreground),
             ),
           )
@@ -126,47 +127,47 @@ class AppPrimaryButton extends StatelessWidget {
             ],
           );
 
-    return Semantics(
-      button: true,
-      enabled: onPressed != null && !isLoading,
-      label: text,
-      hint: semanticsHint,
-      excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: size.minHeight,
-          minWidth: width ?? double.infinity,
-          maxWidth: width ?? double.infinity,
-        ),
-        child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: background,
-            foregroundColor: foreground,
-            // Desabilitado continua legível: o Âmbar clareia para Âmbar 300
-            // (é o "Confirmado" logo após o toque) e os demais esmaecem.
-            disabledBackgroundColor: switch (variant) {
-              AppButtonVariant.amber => VigiColors.ambar300,
-              AppButtonVariant.outline => Colors.transparent,
-              _ => background.withValues(alpha: 0.6),
-            },
-            disabledForegroundColor: variant == AppButtonVariant.amber
-                ? foreground
-                : foreground.withValues(alpha: 0.7),
-            elevation: 0,
-            minimumSize: Size(VigiSizes.touch, size.minHeight),
-            padding: const EdgeInsets.symmetric(
-              horizontal: VigiSpace.x6,
-              vertical: VigiSpace.x4,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(VigiRadius.md),
-              side: side,
-            ),
-          ),
-          onPressed: isLoading ? null : onPressed,
-          child: content,
-        ),
+    // O próprio botão já se anuncia (papel, texto, estado e ação de toque);
+    // aqui só entra a dica do que acontece ao tocar.
+    final button = ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: size.minHeight,
+        minWidth: width ?? double.infinity,
+        maxWidth: width ?? double.infinity,
       ),
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          // Desabilitado continua legível: o Âmbar clareia para Âmbar 300
+          // (é o "Confirmado" logo após o toque) e os demais esmaecem.
+          disabledBackgroundColor: switch (variant) {
+            AppButtonVariant.amber => VigiColors.ambar300,
+            AppButtonVariant.outline => Colors.transparent,
+            _ => background.withValues(alpha: 0.6),
+          },
+          disabledForegroundColor: variant == AppButtonVariant.amber
+              ? foreground
+              : foreground.withValues(alpha: 0.7),
+          elevation: 0,
+          minimumSize: Size(VigiSizes.touch, size.minHeight),
+          padding: const EdgeInsets.symmetric(
+            horizontal: VigiSpace.x6,
+            vertical: VigiSpace.x4,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(VigiRadius.md),
+            side: side,
+          ),
+        ),
+        onPressed: isLoading ? null : onPressed,
+        child: content,
+      ),
+    );
+
+    if (semanticsHint == null) return button;
+    return MergeSemantics(
+      child: Semantics(hint: semanticsHint, child: button),
     );
   }
 }

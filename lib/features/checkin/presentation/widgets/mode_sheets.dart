@@ -58,6 +58,7 @@ class IntervalStepper extends StatelessWidget {
         button: true,
         enabled: enabled,
         label: label,
+        onTap: enabled ? () => onChanged(next) : null,
         excludeSemantics: true,
         child: SizedBox.square(
           dimension: VigiSizes.button,
@@ -385,6 +386,7 @@ class _IconOption extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: selected ? palette.fill : palette.surface,

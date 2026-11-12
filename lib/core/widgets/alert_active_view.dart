@@ -197,16 +197,24 @@ class _DeliveryRow extends StatelessWidget {
               foreground: white,
             ),
             const SizedBox(width: VigiSpace.x3),
+            // Nome à esquerda e status à direita; com a fonte ampliada o
+            // status desce para a linha de baixo em vez de ser cortado.
             Expanded(
-              child: Text(
-                VigiText.firstName(delivery.name),
-                style: AppTypography.label.copyWith(color: white),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: VigiSpace.x2,
+                children: [
+                  Text(
+                    VigiText.firstName(delivery.name),
+                    style: AppTypography.label.copyWith(color: white),
+                  ),
+                  Text(
+                    delivery.sent ? 'SMS enviado' : 'Não enviado',
+                    style: AppTypography.bodyMedium.copyWith(color: white),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: VigiSpace.x2),
-            Text(
-              delivery.sent ? 'SMS enviado' : 'Não enviado',
-              style: AppTypography.bodyMedium.copyWith(color: white),
             ),
           ],
         ),

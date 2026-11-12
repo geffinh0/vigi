@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_typography.dart';
@@ -36,7 +38,8 @@ class ContactAvatar extends StatelessWidget {
           textScaler: TextScaler.noScaling,
           style: AppTypography.label.copyWith(
             color: foreground ?? palette.text,
-            fontSize: size * 0.36,
+            // Nem as iniciais ficam abaixo do mínimo de 14 sp.
+            fontSize: math.max(14, size * 0.36),
             height: 1,
           ),
         ),
