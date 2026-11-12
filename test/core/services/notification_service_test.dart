@@ -1,8 +1,82 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guardiao/core/services/checkin_messages.dart';
 import 'package:guardiao/core/services/notification_service.dart';
+import 'package:mocktail/mocktail.dart';
+
+class MockPlugin extends Mock implements FlutterLocalNotificationsPlugin {}
 
 void main() {
+  setUpAll(() => registerFallbackValue(const NotificationDetails()));
+
+  group('NotificationService: push da família com o app aberto', () {
+    late MockPlugin plugin;
+    late NotificationService service;
+
+    setUp(() {
+      plugin = MockPlugin();
+      service = NotificationService(plugin: plugin);
+      when(
+        () => plugin.show(any(), any(), any(), any()),
+      ).thenAnswer((_) async {});
+    });
+
+    AndroidNotificationDetails shown() {
+      final details =
+          verify(
+                () => plugin.show(
+                  NotificationService.notificationIdFamilia,
+                  any(),
+                  any(),
+                  captureAny(),
+                ),
+              ).captured.single
+              as NotificationDetails;
+      return details.android!;
+    }
+
+    test(
+      'pedido de ajuda: canal de alerta, prioridade máxima, Sinal',
+      () async {
+        await service.showFamilyAlert(
+          title: 'Lúcia pediu ajuda',
+          body: 'Ligue agora.',
+        );
+        final android = shown();
+        expect(android.channelId, NotificationService.channelIdAlerta);
+        expect(android.importance, Importance.max);
+        expect(android.color, NotificationService.colorAlerta);
+        expect(android.icon, NotificationService.smallIcon);
+      },
+    );
+
+    test('"está tudo bem": canal próprio, sem alarme e sem vermelho', () async {
+      await service.showFamilyAlert(
+        title: 'Lúcia está bem',
+        body: 'Lúcia cancelou o pedido de ajuda.',
+        allClear: true,
+      );
+      final android = shown();
+      expect(android.channelId, NotificationService.channelIdTudoBem);
+      expect(android.importance, isNot(Importance.max));
+      expect(android.color, NotificationService.colorVigilia);
+      expect(android.color, isNot(NotificationService.colorAlerta));
+    });
+
+    test('o "está tudo bem" substitui o alerta na bandeja', () async {
+      await service.showFamilyAlert(title: 'a', body: 'b');
+      await service.showFamilyAlert(title: 'c', body: 'd', allClear: true);
+      verify(
+        () => plugin.show(
+          NotificationService.notificationIdFamilia,
+          any(),
+          any(),
+          any(),
+        ),
+      ).called(2);
+    });
+  });
+
   group('NotificationService: decisão pura de prazo vencido', () {
     final deadline = DateTime(2026, 8, 16, 14);
 
@@ -52,6 +126,7 @@ void main() {
         NotificationService.channelNameChamada,
         NotificationService.channelNameUltimaChamada,
         NotificationService.channelNameAlerta,
+        NotificationService.channelNameTudoBem,
       ]) {
         expect(name, isNot(name.toUpperCase()));
       }

@@ -1,8 +1,8 @@
 import 'package:logging/logging.dart';
 
-/// Logger baseado no pacote `logging` (canal "VIGI").
+/// Logger baseado no pacote `logging` (canal "Vigi").
 abstract class AppLogger {
-  static final Logger _logger = Logger('VIGI');
+  static final Logger _logger = Logger('Vigi');
 
   static void init() {
     Logger.root.level = Level.ALL;

@@ -37,12 +37,10 @@ class PushService {
 
     final messaging = FirebaseMessaging.instance;
 
-    try {
-      await messaging.requestPermission();
-    } catch (_) {}
+    // A permissão de notificações não é pedida aqui: a tela "Permissões"
+    // explica para que serve antes de o sistema perguntar.
 
-    // Com o app aberto o Android não exibe o push sozinho: exibimos no canal
-    // de pedidos de ajuda.
+    // Com o app aberto o Android não exibe o push sozinho: o Vigi exibe.
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
       final notification = message.notification;
       if (notification == null) return;
@@ -50,6 +48,7 @@ class PushService {
         notificationService.showFamilyAlert(
           title: notification.title ?? 'Vigi',
           body: notification.body ?? '',
+          allClear: message.data['event_type'] == 'alert_resolved',
         ),
       );
     });

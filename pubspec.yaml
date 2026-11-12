@@ -47,7 +47,7 @@ dependencies:
   audioplayers: ^6.7.1
   vibration: ^3.1.8
   home_widget: ^0.9.3
-  # Notificações do navegador no painel web da família (VIGI Família)
+  # Notificações do navegador no painel web da família (Vigi Família)
   web: ^1.1.1
   geocoding: ^5.0.1
 

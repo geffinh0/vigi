@@ -63,6 +63,12 @@ class NotificationService {
   static const String channelDescUltimaChamada =
       'Alarme dos minutos finais antes de o Vigi avisar seus contatos.';
 
+  /// "Está tudo bem": o push que fecha um pedido de ajuda. Chega sem alarme.
+  static const String channelIdTudoBem = 'vigi_tudo_bem';
+  static const String channelNameTudoBem = 'Está tudo bem';
+  static const String channelDescTudoBem =
+      'Avisa quando alguém que você acompanha cancelou um pedido de ajuda.';
+
   /// Mantém o identificador antigo: o push para familiares usa este canal.
   static const String channelIdAlerta = 'alerta_checkin';
   static const String channelNameAlerta = 'Pedidos de ajuda';
@@ -184,6 +190,13 @@ class NotificationService {
         channelNameAlerta,
         description: channelDescAlerta,
         importance: Importance.max,
+      ),
+    );
+    await androidPlugin.createNotificationChannel(
+      const AndroidNotificationChannel(
+        channelIdTudoBem,
+        channelNameTudoBem,
+        description: channelDescTudoBem,
       ),
     );
   }
@@ -527,9 +540,13 @@ class NotificationService {
 
   /// Push recebido com o app aberto: alguém que a pessoa acompanha pediu
   /// ajuda (o Android não mostra o push sozinho nesse caso).
+  ///
+  /// Com [allClear], é o aviso de que o pedido foi cancelado: substitui o
+  /// alerta anterior e chega sem alarme, na cor da vigília.
   Future<void> showFamilyAlert({
     required String title,
     required String body,
+    bool allClear = false,
   }) async {
     try {
       await _plugin.show(
@@ -537,17 +554,27 @@ class NotificationService {
         title,
         body,
         NotificationDetails(
-          android: AndroidNotificationDetails(
-            channelIdAlerta,
-            channelNameAlerta,
-            channelDescription: channelDescAlerta,
-            importance: Importance.max,
-            priority: Priority.max,
-            icon: smallIcon,
-            color: colorAlerta,
-            visibility: NotificationVisibility.public,
-            styleInformation: BigTextStyleInformation(body),
-          ),
+          android: allClear
+              ? AndroidNotificationDetails(
+                  channelIdTudoBem,
+                  channelNameTudoBem,
+                  channelDescription: channelDescTudoBem,
+                  icon: smallIcon,
+                  color: colorVigilia,
+                  visibility: NotificationVisibility.public,
+                  styleInformation: BigTextStyleInformation(body),
+                )
+              : AndroidNotificationDetails(
+                  channelIdAlerta,
+                  channelNameAlerta,
+                  channelDescription: channelDescAlerta,
+                  importance: Importance.max,
+                  priority: Priority.max,
+                  icon: smallIcon,
+                  color: colorAlerta,
+                  visibility: NotificationVisibility.public,
+                  styleInformation: BigTextStyleInformation(body),
+                ),
         ),
       );
     } catch (_) {}

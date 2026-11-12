@@ -50,5 +50,5 @@ flutter {
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 } else {
-    logger.warn("VIGI: android/app/google-services.json ausente — push FCM desativado neste build.")
+    logger.warn("Vigi: android/app/google-services.json ausente — push FCM desativado neste build.")
 }

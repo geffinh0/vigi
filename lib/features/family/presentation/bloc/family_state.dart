@@ -25,7 +25,7 @@ class FamilyLoaded extends FamilyState {
 
   final List<FamilyLinkEntity> links;
 
-  /// Código VIGI que a pessoa compartilha com quem vai acompanhá-la.
+  /// Código Vigi que a pessoa compartilha com quem vai acompanhá-la.
   final String? myCode;
   final String? myUserId;
 

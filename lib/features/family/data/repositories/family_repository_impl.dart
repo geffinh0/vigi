@@ -24,9 +24,10 @@ class FamilyRepositoryImpl implements FamilyRepository {
       return Left(AuthFailure(e.message));
     } on PostgrestException catch (e) {
       final isFriendly = e.code == 'P0001';
-      return Left(
-        ServerFailure(isFriendly ? e.message : '$context: ${e.message}'),
-      );
+      // Bancos ainda sem a migração 20261112000000 escrevem a marca em
+      // caixa alta; na tela ela é sempre "Vigi".
+      final message = e.message.replaceAll('VIGI', 'Vigi');
+      return Left(ServerFailure(isFriendly ? message : '$context: $message'));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

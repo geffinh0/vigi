@@ -2,7 +2,7 @@
 abstract class AppConfig {
   static const String appName = 'Vigi';
 
-  /// Endereço público do VIGI Família (PWA web do familiar), usado na
+  /// Endereço público do Vigi Família (PWA web do familiar), usado na
   /// mensagem de convite. Defina com --dart-define=FAMILY_WEB_URL=...
   static const String familyWebUrl = String.fromEnvironment(
     'FAMILY_WEB_URL',

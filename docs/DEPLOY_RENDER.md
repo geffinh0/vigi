@@ -1,7 +1,7 @@
-# Publicando o VIGI Família no Render
+# Publicando o Vigi Família no Render
 
-O **VIGI Família** é o painel web (PWA) em que o familiar acompanha, sem invadir
-a privacidade, quem o autorizou pelo app VIGI. Ele é um site estático gerado
+O **Vigi Família** é o painel web (PWA) em que o familiar acompanha, sem invadir
+a privacidade, quem o autorizou pelo app Vigi. Ele é um site estático gerado
 pelo Flutter (`lib/main_family.dart`) e pode ser hospedado de graça no Render.
 
 > O app do idoso continua sendo o **Android nativo** (APK): alarmes, SMS
@@ -71,5 +71,5 @@ celular do idoso) e, se tiver o app Android, por **push**.
 |---|---|
 | Build falha por falta de memória | Em **Settings** do site, tente novamente (**Manual Deploy → Clear build cache & deploy**). Se persistir, gere localmente com `flutter build web -t lib/main_family.dart --release` e publique a pasta `build/web` em um Static Site sem build command. |
 | Página em branco após atualizar | Recarregue com Ctrl+Shift+R (o PWA guarda a versão anterior em cache). |
-| "Código VIGI não encontrado" | Confira as 6 letras/números na tela **Família** do celular do idoso. |
+| "Código Vigi não encontrado" | Confira as 6 letras/números na tela **Família** do celular do idoso. |
 | Painel não atualiza sozinho | Verifique se a migration `20260925000200_family_link_codes.sql` foi aplicada (`supabase db push`), pois ela ativa o Realtime. |
