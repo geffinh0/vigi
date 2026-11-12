@@ -1,6 +1,6 @@
 name: Release APK
 
-# Gera o APK/AAB oficial, assinado. Rode em Actions > Release APK > Run workflow,
+# Gera o APK oficial, assinado. Rode em Actions > Release APK > Run workflow,
 # ou crie uma tag vX.Y.Z. Secrets necessários (Settings > Secrets > Actions):
 #   VIGI_KEYSTORE_BASE64, VIGI_KEYSTORE_PASSWORD, VIGI_KEY_ALIAS, VIGI_KEY_PASSWORD
 # Opcional (push FCM): GOOGLE_SERVICES_JSON_BASE64
@@ -52,18 +52,14 @@ jobs:
       - name: Testes
         run: flutter test
 
-      - name: Build APK e AAB
+      - name: Build APK
         env:
           VIGI_KEYSTORE_PASSWORD: ${{ secrets.VIGI_KEYSTORE_PASSWORD }}
           VIGI_KEY_ALIAS: ${{ secrets.VIGI_KEY_ALIAS }}
           VIGI_KEY_PASSWORD: ${{ secrets.VIGI_KEY_PASSWORD }}
-        run: |
-          flutter build apk --release
-          flutter build appbundle --release
+        run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
         with:
           name: vigi-release
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/flutter-apk/app-release.apk
