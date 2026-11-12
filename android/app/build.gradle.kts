@@ -1,9 +1,24 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Assinatura de release. Lida de android/key.properties (local) ou das
+// variáveis de ambiente VIGI_KEYSTORE_* (CI). Nunca versione o keystore.
+val keyProps = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun signingValue(prop: String, env: String): String? =
+    keyProps.getProperty(prop) ?: System.getenv(env)
+
+val releaseStoreFile = signingValue("storeFile", "VIGI_KEYSTORE_FILE")
+val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exists()
 
 android {
     namespace = "com.guardiao.guardiao"
@@ -29,9 +44,25 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = signingValue("storePassword", "VIGI_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "VIGI_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "VIGI_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("Vigi: keystore de release ausente — assinando com a chave de DEBUG. Não publique este APK.")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

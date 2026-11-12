@@ -1,0 +1,5 @@
+# Copie para android/key.properties (ignorado pelo git) e preencha.
+storeFile=/caminho/absoluto/vigi-release.jks
+storePassword=SENHA_DO_KEYSTORE
+keyAlias=vigi
+keyPassword=SENHA_DA_CHAVE
