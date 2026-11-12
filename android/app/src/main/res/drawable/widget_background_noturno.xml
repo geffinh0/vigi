@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modo Sono: Petróleo 900, sem branco puro. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/vigi_petroleo_900" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/vigi_petroleo_700" />
+    <corners android:radius="24dp" />
+</shape>

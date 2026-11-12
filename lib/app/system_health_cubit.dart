@@ -26,6 +26,10 @@ class SystemHealthCubit extends Cubit<List<HealthIssue>> {
     }
   }
 
+  /// Permissões e ajustes que fazem sentido neste aparelho.
+  List<HealthIssue> get permissionKinds =>
+      _service?.permissionKinds ?? const [];
+
   /// Leva a pessoa direto à correção e reverifica.
   Future<void> fix(HealthIssue issue) async {
     await _service?.fix(issue);

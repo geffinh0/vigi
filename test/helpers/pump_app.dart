@@ -46,9 +46,30 @@ class ContactsInitialForTest extends ContactsInitial {
 
 /// Faixa de saúde com problemas fixos, sem tocar em plugins.
 class FakeHealthCubit extends SystemHealthCubit {
-  FakeHealthCubit([List<HealthIssue> issues = const []]) {
+  FakeHealthCubit([
+    List<HealthIssue> issues = const [],
+    this.kinds = const [],
+  ]) {
     emit(issues);
   }
+
+  /// Permissões que a tela "Permissões" lista.
+  final List<HealthIssue> kinds;
+
+  /// Problemas que a pessoa mandou corrigir.
+  final List<HealthIssue> fixed = [];
+
+  @override
+  List<HealthIssue> get permissionKinds => kinds;
+
+  @override
+  Future<void> fix(HealthIssue issue) async {
+    fixed.add(issue);
+    emit(state.where((i) => i != issue).toList());
+  }
+
+  @override
+  Future<void> refresh() async {}
 }
 
 // ── Dados da persona de referência: Dona Lúcia, 74 anos ──────────────────
@@ -83,7 +104,7 @@ const tSleep = MonitoringModeEntity(
   isSystemDefault: true,
 );
 
-const tModes = [tRoutine, tShower, tSleep];
+const List<MonitoringModeEntity> tModes = [tRoutine, tShower, tSleep];
 
 const tContacts = [
   EmergencyContactEntity(
@@ -114,7 +135,8 @@ class AppBlocs {
     PanicState panic = const PanicInitial(),
     FamilyState family = const FamilyLoaded([], myCode: 'K7P2QX'),
     List<HealthIssue> health = const [],
-  }) : this.health = FakeHealthCubit(health) {
+    List<HealthIssue> permissionKinds = const [],
+  }) : health = FakeHealthCubit(health, permissionKinds) {
     whenListen(
       this.auth,
       const Stream<AuthState>.empty(),

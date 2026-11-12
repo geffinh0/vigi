@@ -13,6 +13,8 @@ import 'notification_service.dart';
 /// Princípio "falhar alto": se algo compromete a proteção, isso aparece no
 /// topo da tela inicial, em linguagem clara, com o botão que resolve. Um
 /// sistema de segurança que falha em silêncio é pior que nenhum.
+///
+/// A ordem dos valores é a ordem de gravidade.
 enum HealthIssue {
   /// Nenhuma pessoa cadastrada para ser avisada.
   noContacts,
@@ -23,6 +25,12 @@ enum HealthIssue {
   /// Sem permissão de SMS: o Vigi não consegue avisar ninguém sozinho.
   smsDenied,
 
+  /// Alarmes exatos desligados: a chamada pode atrasar.
+  exactAlarmsDenied,
+
+  /// Alarme em tela cheia desligado (Android 14 ou mais novo).
+  fullScreenDenied,
+
   /// Localização negada: o pedido de ajuda vai sem o "onde".
   locationDenied,
 
@@ -30,7 +38,13 @@ enum HealthIssue {
   batteryOptimized,
 
   /// Sem internet: o aviso sai só por SMS.
-  offline,
+  offline
+  ;
+
+  /// É uma permissão ou ajuste do aparelho que a pessoa concede (e que a
+  /// tela "Permissões" lista).
+  bool get isPermission =>
+      this != HealthIssue.noContacts && this != HealthIssue.offline;
 }
 
 /// Verifica as condições do aparelho de que o Vigi depende e abre a tela
@@ -44,31 +58,58 @@ abstract class SystemHealthService {
   /// foi resolvido na hora.
   Future<bool> fix(HealthIssue issue);
 
+  /// Permissões e ajustes que fazem sentido neste aparelho, na ordem em que
+  /// a tela "Permissões" os mostra.
+  List<HealthIssue> get permissionKinds;
+
   /// Avisa quando a conexão cai ou volta.
   Stream<void> get changes;
 }
 
 /// Implementação com os plugins já usados pelo app e um canal nativo
-/// (`vigi/system`) para a economia de bateria.
+/// (`vigi/system`) para a economia de bateria e o alarme em tela cheia.
 class SystemHealthServiceImpl implements SystemHealthService {
   SystemHealthServiceImpl({
     required this.notificationService,
     this.networkInfo,
     this.emergencyDispatcher,
     MethodChannel? channel,
-  }) : _channel = channel ?? const MethodChannel('vigi/system');
+    bool? isAndroid,
+  }) : _channel = channel ?? const MethodChannel('vigi/system'),
+       _isAndroid =
+           isAndroid ??
+           (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
 
   final NotificationService notificationService;
   final NetworkInfo? networkInfo;
   final EmergencyDispatcher? emergencyDispatcher;
   final MethodChannel _channel;
+  final bool _isAndroid;
 
-  bool get _isAndroid =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  @override
+  List<HealthIssue> get permissionKinds => [
+    HealthIssue.notificationsBlocked,
+    if (_isAndroid && emergencyDispatcher != null) HealthIssue.smsDenied,
+    HealthIssue.locationDenied,
+    if (_isAndroid) ...[
+      HealthIssue.exactAlarmsDenied,
+      HealthIssue.fullScreenDenied,
+      HealthIssue.batteryOptimized,
+    ],
+  ];
 
   @override
   Stream<void> get changes =>
       networkInfo?.onConnectivityChanged.map((_) {}) ?? const Stream.empty();
+
+  Future<bool?> _native(String method) async {
+    try {
+      return await _channel.invokeMethod<bool>(method);
+    } catch (_) {
+      // Sem o canal nativo (versão antiga, outra plataforma): sem resposta.
+      return null;
+    }
+  }
 
   @override
   Future<List<HealthIssue>> check() async {
@@ -84,6 +125,15 @@ class SystemHealthServiceImpl implements SystemHealthService {
       }
     }
 
+    if (_isAndroid) {
+      if (!await notificationService.canScheduleExactAlarms()) {
+        issues.add(HealthIssue.exactAlarmsDenied);
+      }
+      if (await _native('canUseFullScreenIntent') == false) {
+        issues.add(HealthIssue.fullScreenDenied);
+      }
+    }
+
     try {
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied ||
@@ -95,12 +145,9 @@ class SystemHealthServiceImpl implements SystemHealthService {
     }
 
     if (_isAndroid) {
-      try {
-        final ignoring = await _channel.invokeMethod<bool>(
-          'isIgnoringBatteryOptimizations',
-        );
-        if (ignoring == false) issues.add(HealthIssue.batteryOptimized);
-      } catch (_) {}
+      if (await _native('isIgnoringBatteryOptimizations') == false) {
+        issues.add(HealthIssue.batteryOptimized);
+      }
     }
 
     try {
@@ -112,17 +159,30 @@ class SystemHealthServiceImpl implements SystemHealthService {
     return issues;
   }
 
+  Future<void> _openAppSettings() async {
+    if (await _native('openAppSettings') ?? false) return;
+    try {
+      await Geolocator.openAppSettings();
+    } catch (_) {}
+  }
+
   @override
   Future<bool> fix(HealthIssue issue) async {
     try {
       switch (issue) {
         case HealthIssue.notificationsBlocked:
           if (await notificationService.requestPermission()) return true;
-          await Geolocator.openAppSettings();
+          // Negada em definitivo: só as configurações do app resolvem.
+          await _openAppSettings();
           return false;
         case HealthIssue.smsDenied:
-          await emergencyDispatcher?.ensurePermissions();
+          await emergencyDispatcher?.requestSmsPermission();
           return await emergencyDispatcher?.hasSmsPermission() ?? false;
+        case HealthIssue.exactAlarmsDenied:
+          return notificationService.requestExactAlarms();
+        case HealthIssue.fullScreenDenied:
+          await _native('openFullScreenIntentSettings');
+          return false;
         case HealthIssue.locationDenied:
           var permission = await Geolocator.checkPermission();
           if (permission == LocationPermission.denied) {
@@ -132,10 +192,12 @@ class SystemHealthServiceImpl implements SystemHealthService {
               permission == LocationPermission.whileInUse) {
             return true;
           }
-          await Geolocator.openAppSettings();
+          if (permission == LocationPermission.deniedForever) {
+            await _openAppSettings();
+          }
           return false;
         case HealthIssue.batteryOptimized:
-          await _channel.invokeMethod<bool>('openBatterySettings');
+          await _native('openBatterySettings');
           return false;
         case HealthIssue.offline:
         case HealthIssue.noContacts:

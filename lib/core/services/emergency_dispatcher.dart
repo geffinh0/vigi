@@ -91,6 +91,10 @@ abstract class EmergencyDispatcher {
 
   /// Sem a permissão de SMS o Vigi não consegue avisar ninguém sozinho.
   Future<bool> hasSmsPermission();
+
+  /// Pede só a permissão de SMS (a tela "Permissões" pede uma de cada vez,
+  /// cada qual com a sua explicação).
+  Future<void> requestSmsPermission();
 }
 
 /// Converte telefones digitados livremente para o formato internacional
@@ -181,6 +185,16 @@ class EmergencyDispatcherImpl implements EmergencyDispatcher {
     } catch (_) {
       // Plataformas sem o canal nativo (ex.: iOS/web): ao menos a localização.
       await LocationHelper.ensurePermission();
+    }
+  }
+
+  @override
+  Future<void> requestSmsPermission() async {
+    try {
+      await _channel.invokeMethod<bool>('requestSmsPermission');
+    } catch (_) {
+      // Versão nativa antiga ou plataforma sem SMS: usa o pedido conjunto.
+      await ensurePermissions();
     }
   }
 

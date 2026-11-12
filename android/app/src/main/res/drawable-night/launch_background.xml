@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tela de abertura no tema escuro: o símbolo sobre Petróleo 900. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/vigi_petroleo_900" />
+    <item
+        android:width="120dp"
+        android:height="120dp"
+        android:drawable="@drawable/ic_vigi_splash_night"
+        android:gravity="center" />
+</layer-list>

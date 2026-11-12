@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vigi</string>
+    <string name="widget_description">Mostra o próximo check-in e, quando é a sua vez, vira um botão de \"Estou bem\".</string>
+    <!-- Textos do widget (Guia de Design, seções 9 e 12). -->
+    <string name="widget_resting_title">Em pausa</string>
+    <string name="widget_watching_title">Vigiando</string>
+    <!-- \u2060 (word joiner) impede a quebra de linha no hífen de "check-in". -->
+    <string name="widget_next_checkin">próximo check-\u2060in</string>
+    <string name="widget_open_subtitle">toque para abrir</string>
+    <string name="widget_your_turn_title">Estou bem</string>
+    <string name="widget_your_turn_subtitle">toque para confirmar</string>
+    <string name="widget_alert_title">Pedimos ajuda</string>
+</resources>

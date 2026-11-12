@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens de cor do Vigi usados fora do Flutter (ícone, widget, abertura).
+     Mesmos valores de lib/core/theme/app_colors.dart. -->
+<resources>
+    <!-- Petróleo: a vigília -->
+    <color name="vigi_petroleo_900">#0F2221</color>
+    <color name="vigi_petroleo_800">#1F3D3B</color>
+    <color name="vigi_petroleo_700">#2D5654</color>
+    <color name="vigi_petroleo_300">#9DBAB7</color>
+    <!-- Âmbar: a sua vez -->
+    <color name="vigi_ambar_500">#E8A33D</color>
+    <!-- Sinal: socorro (exclusivo) -->
+    <color name="vigi_sinal_600">#C23B3A</color>
+    <!-- Linho: o chão -->
+    <color name="vigi_linho_50">#FAF8F4</color>
+    <color name="vigi_linho_100">#F2EFE8</color>
+    <color name="vigi_linho_200">#E5E1D8</color>
+    <color name="vigi_cinza_texto">#5F5E5A</color>
+    <color name="vigi_branco">#FFFFFF</color>
+</resources>

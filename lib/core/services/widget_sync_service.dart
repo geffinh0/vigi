@@ -37,9 +37,10 @@ class WidgetSyncServiceImpl implements WidgetSyncService {
     try {
       // O widget mostra o horário absoluto do próximo check-in ("15:00"):
       // não precisa ser atualizado a cada segundo.
-      final formattedTime = timeDisplay ?? (isMonitoring ? '' : 'Descansando');
+      final formattedTime = timeDisplay ?? (isMonitoring ? '' : 'Em pausa');
       final formattedStatus =
-          statusDisplay ?? (isMonitoring ? 'próximo check-in' : 'Vigi');
+          statusDisplay ??
+          (isMonitoring ? 'próximo check-in' : 'toque para abrir');
 
       await HomeWidget.saveWidgetData<String>('vigi_state', vigiState);
       await HomeWidget.saveWidgetData<int>(

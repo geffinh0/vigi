@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Texto do widget. Nenhum texto do Vigi fica abaixo de 14 sp. -->
+<resources>
+    <style name="VigiWidgetTitle">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="VigiWidgetCaption">
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>

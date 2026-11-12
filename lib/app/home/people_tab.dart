@@ -122,6 +122,22 @@ class _PeopleTabState extends State<PeopleTab> {
             );
           },
         ),
+        const SizedBox(height: VigiSpace.block),
+        Text(
+          'Este aparelho',
+          style: AppTypography.h3.copyWith(color: palette.text),
+        ),
+        const SizedBox(height: VigiSpace.x1),
+        Text(
+          'O que o Vigi pode usar do celular para chamar você e pedir ajuda.',
+          style: AppTypography.bodyMedium.copyWith(color: palette.textMuted),
+        ),
+        const SizedBox(height: VigiSpace.x4),
+        AppPrimaryButton(
+          text: 'Ver permissões',
+          variant: AppButtonVariant.outline,
+          onPressed: () => context.push('/permissions'),
+        ),
         const SizedBox(height: VigiSpace.x12),
         Center(
           child: TextButton(

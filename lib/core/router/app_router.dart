@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/app.dart';
+import '../../app/permissions_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -46,6 +47,10 @@ GoRouter buildRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/home',
         builder: (context, state) => const VigiHomePage(),
+      ),
+      GoRoute(
+        path: '/permissions',
+        builder: (context, state) => const PermissionsPage(),
       ),
       GoRoute(
         path: '/checkin-alert',

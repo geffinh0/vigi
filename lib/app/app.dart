@@ -28,6 +28,7 @@ import '../injection/injection_container.dart';
 import 'config/app_config.dart';
 import 'home/home_tab.dart';
 import 'home/people_tab.dart';
+import 'permissions_page.dart';
 import 'system_health_cubit.dart';
 
 /// Ação pedida de fora do app (widget ou notificação) que espera a vigília
@@ -257,12 +258,16 @@ class _VigiHomePageState extends State<VigiHomePage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(context.read<SystemHealthCubit>().refresh());
-    // Abrindo o app já em chamada ou alerta, vai direto para a tela cheia.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = context.read<CheckinBloc>().state;
       if (state is CheckinCalling || state is CheckinAlertActive) {
+        // Abrindo o app já em chamada ou alerta, vai direto para a tela cheia.
         unawaited(context.push('/checkin-alert'));
+      } else if (PermissionsIntro.pending &&
+          context.read<SystemHealthCubit>().permissionKinds.isNotEmpty) {
+        // Primeira vez: explica as permissões antes de o sistema perguntar.
+        unawaited(context.push('/permissions'));
       }
     });
   }

@@ -12,6 +12,8 @@ extension HealthIssueCopy on HealthIssue {
     HealthIssue.noContacts => 'Ninguém será avisado.',
     HealthIssue.notificationsBlocked => 'As notificações estão bloqueadas.',
     HealthIssue.smsDenied => 'O Vigi não pode enviar SMS.',
+    HealthIssue.exactAlarmsDenied => 'Os alarmes estão desligados.',
+    HealthIssue.fullScreenDenied => 'O alarme em tela cheia está desligado.',
     HealthIssue.locationDenied => 'A localização está desligada.',
     HealthIssue.batteryOptimized => 'A economia de bateria está ligada.',
     HealthIssue.offline => 'Sem internet.',
@@ -24,6 +26,9 @@ extension HealthIssueCopy on HealthIssue {
           'pessoa.',
     HealthIssue.notificationsBlocked => 'Sem elas, o Vigi não consegue chamar.',
     HealthIssue.smsDenied => 'Sem isso, ninguém é avisado quando você precisa.',
+    HealthIssue.exactAlarmsDenied => 'A chamada pode chegar atrasada.',
+    HealthIssue.fullScreenDenied =>
+      'A última chamada aparece só como um aviso pequeno.',
     HealthIssue.locationDenied =>
       'Quem for avisado não vai saber onde você está.',
     HealthIssue.batteryOptimized =>
@@ -37,9 +42,60 @@ extension HealthIssueCopy on HealthIssue {
     HealthIssue.noContacts => 'Escolher',
     HealthIssue.notificationsBlocked => 'Permitir',
     HealthIssue.smsDenied => 'Permitir',
+    HealthIssue.exactAlarmsDenied => 'Permitir',
+    HealthIssue.fullScreenDenied => 'Permitir',
     HealthIssue.locationDenied => 'Permitir',
     HealthIssue.batteryOptimized => 'Ajustar',
     HealthIssue.offline => null,
+  };
+
+  /// Nome curto da permissão, na tela "Permissões".
+  String get permissionName => switch (this) {
+    HealthIssue.notificationsBlocked => 'Notificações',
+    HealthIssue.smsDenied => 'Mensagens SMS',
+    HealthIssue.exactAlarmsDenied => 'Alarmes',
+    HealthIssue.fullScreenDenied => 'Alarme em tela cheia',
+    HealthIssue.locationDenied => 'Localização',
+    HealthIssue.batteryOptimized => 'Bateria sem restrição',
+    HealthIssue.noContacts || HealthIssue.offline => '',
+  };
+
+  /// Botão da tela "Permissões": verbo + objeto, dizendo o que acontece.
+  String get permissionAction => switch (this) {
+    HealthIssue.notificationsBlocked => 'Permitir notificações',
+    HealthIssue.smsDenied => 'Permitir SMS',
+    HealthIssue.exactAlarmsDenied => 'Permitir alarmes',
+    HealthIssue.fullScreenDenied => 'Permitir tela cheia',
+    HealthIssue.locationDenied => 'Permitir localização',
+    HealthIssue.batteryOptimized => 'Tirar a restrição',
+    HealthIssue.noContacts || HealthIssue.offline => '',
+  };
+
+  /// Para que o Vigi usa a permissão, em uma frase.
+  String get permissionPurpose => switch (this) {
+    HealthIssue.notificationsBlocked =>
+      'Para o Vigi chamar você na hora do check-in.',
+    HealthIssue.smsDenied =>
+      'Para avisar seus contatos por mensagem, mesmo sem internet.',
+    HealthIssue.exactAlarmsDenied => 'Para a chamada tocar na hora certa.',
+    HealthIssue.fullScreenDenied =>
+      'Para a última chamada aparecer com o celular bloqueado.',
+    HealthIssue.locationDenied =>
+      'Para dizer onde você está. Só é enviada em um pedido de ajuda.',
+    HealthIssue.batteryOptimized =>
+      'Para o celular não fechar o Vigi enquanto ele vigia.',
+    HealthIssue.noContacts || HealthIssue.offline => '',
+  };
+
+  /// Ícone da permissão (sempre acompanhado do nome).
+  IconData get permissionIcon => switch (this) {
+    HealthIssue.notificationsBlocked => Icons.notifications_rounded,
+    HealthIssue.smsDenied => Icons.sms_rounded,
+    HealthIssue.exactAlarmsDenied => Icons.alarm_rounded,
+    HealthIssue.fullScreenDenied => Icons.fullscreen_rounded,
+    HealthIssue.locationDenied => Icons.location_on_rounded,
+    HealthIssue.batteryOptimized => Icons.battery_saver_rounded,
+    HealthIssue.noContacts || HealthIssue.offline => Icons.info_rounded,
   };
 }
 

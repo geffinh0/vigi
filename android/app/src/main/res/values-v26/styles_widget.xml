@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A partir do Android 8 o widget usa as fontes do Vigi: Nunito nos
+     números e títulos, Atkinson Hyperlegible no texto de apoio. -->
+<resources>
+    <style name="VigiWidgetTitle">
+        <item name="android:textSize">22sp</item>
+        <item name="android:fontFamily">@font/nunito_extrabold</item>
+    </style>
+
+    <style name="VigiWidgetCaption">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/atkinson_hyperlegible</item>
+    </style>
+</resources>

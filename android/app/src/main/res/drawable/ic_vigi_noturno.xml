@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vigi noturno: olhos Âmbar sobre Petróleo 900. Gerado por scripts/make_icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:pathData="M6.7,34.11 a11.04,11.04 0 1,0 22.07,0 a11.04,11.04 0 1,0 -22.07,0 Z"
+        android:strokeColor="#E8A33D"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M12.78,34.11 a4.96,4.96 0 1,0 9.92,0 a4.96,4.96 0 1,0 -9.92,0 Z"
+        android:fillColor="#F2EFE8" />
+    <path
+        android:pathData="M35.22,34.11 a11.04,11.04 0 1,0 22.07,0 a11.04,11.04 0 1,0 -22.07,0 Z"
+        android:strokeColor="#E8A33D"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M41.3,34.11 a4.96,4.96 0 1,0 9.92,0 a4.96,4.96 0 1,0 -9.92,0 Z"
+        android:fillColor="#F2EFE8" />
+    <path
+        android:pathData="M4.1,12.53 L32,18.98 L59.9,12.53"
+        android:strokeColor="#9DBAB7"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M32,41.05 L35.35,46.26 L32,51.47 L28.65,46.26 Z"
+        android:fillColor="#E8A33D" />
+</vector>

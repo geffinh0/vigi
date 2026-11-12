@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' show Color;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -79,6 +80,11 @@ class NotificationService {
   /// Ícone pequeno da barra de status (silhueta dos olhos da coruja).
   static const String smallIcon = 'ic_stat_vigi';
 
+  /// Cor de destaque de cada degrau (tinge o ícone e o nome do app).
+  static const Color colorVigilia = Color(0xFF1F3D3B);
+  static const Color colorChamada = Color(0xFF8A5A0F);
+  static const Color colorAlerta = Color(0xFFC23B3A);
+
   /// Sons em `android/app/src/main/res/raw`.
   static const String soundChamada = 'vigi_chamada';
   static const String soundUltimaChamada = 'vigi_ultima_chamada';
@@ -138,10 +144,8 @@ class NotificationService {
     final androidPlugin = _android;
     if (androidPlugin == null) return;
 
-    try {
-      await androidPlugin.requestNotificationsPermission();
-      await androidPlugin.requestExactAlarmsPermission();
-    } catch (_) {}
+    // As permissões não são pedidas aqui: a tela "Permissões" explica cada
+    // uma, em linguagem clara, antes de o sistema perguntar.
 
     await androidPlugin.createNotificationChannel(
       const AndroidNotificationChannel(
@@ -224,6 +228,24 @@ class NotificationService {
     }
   }
 
+  /// Sem alarmes exatos, o Android pode atrasar a chamada em vários minutos.
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      return await _android?.canScheduleExactNotifications() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Abre a tela do sistema que libera os alarmes exatos.
+  Future<bool> requestExactAlarms() async {
+    try {
+      return await _android?.requestExactAlarmsPermission() ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ── Vigília ───────────────────────────────────────────────────────
 
   /// Notificação persistente enquanto o monitoramento está ativo. Informa ao
@@ -247,6 +269,7 @@ class NotificationService {
       usesChronometer: true,
       chronometerCountDown: true,
       icon: smallIcon,
+      color: colorVigilia,
       visibility: NotificationVisibility.public,
     );
 
@@ -295,6 +318,7 @@ class NotificationService {
         priority: Priority.high,
         category: AndroidNotificationCategory.reminder,
         icon: smallIcon,
+        color: colorChamada,
         sound: const RawResourceAndroidNotificationSound(soundChamada),
         vibrationPattern: vibrationChamada,
         ongoing: true,
@@ -328,6 +352,10 @@ class NotificationService {
         priority: Priority.max,
         category: AndroidNotificationCategory.alarm,
         icon: smallIcon,
+        color: colorChamada,
+        // Depois de meia hora tocando sem resposta, o alarme se cala: a essa
+        // altura os contatos já foram avisados.
+        timeoutAfter: 30 * 60 * 1000,
         sound: const RawResourceAndroidNotificationSound(soundUltimaChamada),
         vibrationPattern: vibrationUltimaChamada,
         audioAttributesUsage: AudioAttributesUsage.alarm,
@@ -441,7 +469,7 @@ class NotificationService {
         notificationIdUltimaChamada,
         CheckinMessages.lastCallTitle(info.firstName),
         CheckinMessages.lastCallBody(info.escalatesAt, info.contactNames),
-        _lastCallDetails(info, onlyAlertOnce: true),
+        _lastCallDetails(info),
       );
     } catch (_) {}
   }
@@ -480,6 +508,7 @@ class NotificationService {
             priority: Priority.max,
             category: AndroidNotificationCategory.alarm,
             icon: smallIcon,
+            color: colorAlerta,
             fullScreenIntent: true,
             ongoing: true,
             autoCancel: false,
@@ -515,6 +544,7 @@ class NotificationService {
             importance: Importance.max,
             priority: Priority.max,
             icon: smallIcon,
+            color: colorAlerta,
             visibility: NotificationVisibility.public,
             styleInformation: BigTextStyleInformation(body),
           ),

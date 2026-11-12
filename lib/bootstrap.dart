@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/config/app_config.dart';
-import 'core/services/emergency_dispatcher.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
 import 'core/services/secure_local_storage.dart';
@@ -81,11 +80,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
     AppLogger.error('Erro ao inicializar PushService: $e', e, stack);
   }
 
-  // Pede antecipadamente as permissões de SMS e localização, para que no
-  // momento da emergência o alerta saia sem nenhum diálogo pendente.
-  if (di.sl.isRegistered<EmergencyDispatcher>()) {
-    unawaited(di.sl<EmergencyDispatcher>().ensurePermissions());
-  }
+  // As permissões (notificações, SMS, localização, bateria) não são pedidas
+  // aqui: depois do login, a tela "Permissões" explica cada uma antes de o
+  // sistema perguntar, e a tela inicial avisa o que estiver faltando.
 
   // Registra callback interativo para o Widget de Tela Inicial
   try {
