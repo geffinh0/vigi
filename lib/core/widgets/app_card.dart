@@ -1,47 +1,47 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/vigi_palette.dart';
+import '../theme/vigi_tokens.dart';
 
-/// Card reutilizável — superfície [AppColors.linho], cantos arredondados,
-/// borda sutil [AppColors.linhoEscuro].
+/// Card do Vigi: Linho 50 sobre Linho 100, com borda de 1 dp em Linho 200.
+///
+/// A elevação é feita por cor, não por sombra. Sombra fica reservada para o
+/// halo dos estados, onde ela tem significado.
 class AppCard extends StatelessWidget {
+  const AppCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(VigiSpace.x4),
+    this.onTap,
+    this.backgroundColor,
+    this.borderColor,
+  });
+
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final Color? backgroundColor;
   final Color? borderColor;
 
-  const AppCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(16),
-    this.onTap,
-    this.backgroundColor,
-    this.borderColor,
-  });
-
   @override
   Widget build(BuildContext context) {
-    final cardWidget = Container(
-      padding: padding,
+    final palette = context.vigi;
+    final radius = BorderRadius.circular(VigiRadius.md);
+
+    final card = Ink(
       decoration: BoxDecoration(
-        color: backgroundColor ?? AppColors.linho,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor ?? AppColors.linhoEscuro,
-        ),
+        color: backgroundColor ?? palette.surface,
+        borderRadius: radius,
+        border: Border.all(color: borderColor ?? palette.border),
       ),
-      child: child,
+      child: Padding(padding: padding, child: child),
     );
 
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: cardWidget,
-      );
-    }
-
-    return cardWidget;
+    return Material(
+      type: MaterialType.transparency,
+      child: onTap == null
+          ? card
+          : InkWell(onTap: onTap, borderRadius: radius, child: card),
+    );
   }
 }

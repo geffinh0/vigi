@@ -1,5 +1,5 @@
 -- ============================================================
--- VIGI - Cria duas contas de teste já confirmadas (idoso e família)
+-- Vigi - Cria duas contas de teste já confirmadas (idoso e família)
 --
 -- Uso: Supabase > SQL Editor > cole este arquivo, preencha os campos
 -- marcados com ✏️ e clique em Run. Não versione senhas reais.
@@ -58,7 +58,7 @@ begin
     'Filha');
 
   -- OPCIONAL: descomente para já deixar o vínculo autorizado
-  -- (pula o teste do código VIGI)
+  -- (pula o teste do código Vigi)
   -- insert into public.family_links (monitored_user_id, viewer_user_id, status)
   -- values (v_idoso, v_familia, 'accepted');
 end $$;

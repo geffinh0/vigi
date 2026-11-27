@@ -1,126 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Widget 2x2 do Vigi (Guia de Design, seção 12).
+
+     Mostra a coruja no estado atual e o horário do próximo check-in. Quando
+     é a vez da pessoa, o widget inteiro vira um botão âmbar de toque único.
+     O conteúdo de cada estado é definido em GuardiaoWidgetProvider.kt.
+
+     Não há botão de pânico aqui: pedir ajuda exige segurar por 3 segundos,
+     o que um widget não consegue garantir. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="10dp">
+    android:clickable="true"
+    android:focusable="true"
+    android:padding="12dp">
 
-    <!-- Cabeçalho com Mascote Vigi, Modo e Tempo -->
+    <!-- Coruja e textos formam um bloco só, centralizado no widget. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
+        <!-- Com peso, a coruja é a primeira a ceder: num widget apertado (ou
+             com a fonte do sistema grande) ela encolhe e o texto continua
+             inteiro. Com espaço, fica no tamanho natural de 64 dp. -->
         <ImageView
             android:id="@+id/widget_icon"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:contentDescription="Status do VIGI"
-            android:src="@mipmap/ic_launcher" />
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:adjustViewBounds="true"
+            android:importantForAccessibility="no"
+            android:maxWidth="64dp"
+            android:maxHeight="64dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_vigi_descansando" />
 
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/widget_time"
+            style="@style/VigiWidgetTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="Rotina padrão"
-                android:textColor="#5C6B73"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="60 min"
-                android:textColor="#1C3D47"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Botão Principal: Estou Bem -->
-    <TextView
-        android:id="@+id/widget_button"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/widget_button_bg"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center"
-        android:text="Estou bem"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:textStyle="bold" />
-
-    <!-- Linha de Ações Rápidas: Banho, Sono e SOS -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:orientation="horizontal">
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:maxLines="2"
+            android:text="@string/widget_resting_title"
+            android:textColor="@color/vigi_petroleo_800" />
 
         <TextView
-            android:id="@+id/widget_btn_banho"
-            android:layout_width="0dp"
-            android:layout_height="34dp"
-            android:layout_marginEnd="3dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_button_secondary"
-            android:clickable="true"
-            android:focusable="true"
+            android:id="@+id/widget_status"
+            style="@style/VigiWidgetCaption"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:gravity="center"
-            android:text="Banho"
-            android:textColor="#1C3D47"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widget_btn_sono"
-            android:layout_width="0dp"
-            android:layout_height="34dp"
-            android:layout_marginEnd="3dp"
-            android:layout_marginStart="3dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_button_secondary"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="Sono"
-            android:textColor="#1C3D47"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widget_btn_sos"
-            android:layout_width="0dp"
-            android:layout_height="34dp"
-            android:layout_marginStart="3dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_button_panic"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="SOS"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:maxLines="2"
+            android:text="@string/widget_open_subtitle"
+            android:textColor="@color/vigi_cinza_texto" />
 
     </LinearLayout>
-
-</LinearLayout>
+</FrameLayout>

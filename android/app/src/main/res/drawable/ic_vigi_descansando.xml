@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vigi descansando: olhos fechados, cinza. Gerado por scripts/make_icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:pathData="M24.81,34.95 A7.81,7.81 0 0,1 10.67,34.95"
+        android:strokeColor="#B9B4A8"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M53.33,34.95 A7.81,7.81 0 0,1 39.19,34.95"
+        android:strokeColor="#B9B4A8"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M4.1,12.53 L32,18.98 L59.9,12.53"
+        android:strokeColor="#B9B4A8"
+        android:strokeWidth="2.73"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M32,41.05 L35.35,46.26 L32,51.47 L28.65,46.26 Z"
+        android:fillColor="#B9B4A8" />
+</vector>

@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Permissões do VIGI (ADR-001, Stage 6, 7, 8, 13) -->
+    <!-- Permissões do Vigi. Cada uma é explicada à pessoa, em linguagem
+         clara, na tela "Permissões" do app antes de ser pedida. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -15,7 +16,7 @@
     <uses-feature android:name="android.hardware.telephony" android:required="false"/>
 
     <application
-        android:label="VIGI"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -43,10 +44,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Home Screen Widget Provider (Ticket 03) -->
+        <!-- Widget da tela inicial: coruja, próximo check-in e "Estou bem" -->
         <receiver
             android:name=".GuardiaoWidgetProvider"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

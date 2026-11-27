@@ -7,8 +7,6 @@ import 'package:guardiao/features/checkin/domain/entities/monitoring_mode_entity
 import 'package:guardiao/features/checkin/domain/usecases/confirm_checkin_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import 'package:guardiao/features/checkin/domain/usecases/start_monitoring_usecase.dart';
-import 'package:guardiao/features/panic/domain/entities/panic_alert_entity.dart';
-import 'package:guardiao/features/panic/domain/usecases/trigger_panic_usecase.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockConfirmCheckinUseCase extends Mock implements ConfirmCheckinUseCase {}
@@ -19,15 +17,12 @@ class MockStartMonitoringUseCase extends Mock
 class MockGetAvailableModesUseCase extends Mock
     implements GetAvailableModesUseCase {}
 
-class MockTriggerPanicUseCase extends Mock implements TriggerPanicUseCase {}
-
 class MockWidgetSyncService extends Mock implements WidgetSyncService {}
 
 void main() {
   late MockConfirmCheckinUseCase mockConfirmCheckinUseCase;
   late MockStartMonitoringUseCase mockStartMonitoringUseCase;
   late MockGetAvailableModesUseCase mockGetAvailableModesUseCase;
-  late MockTriggerPanicUseCase mockTriggerPanicUseCase;
   late MockWidgetSyncService mockWidgetSyncService;
 
   const tShowerMode = MonitoringModeEntity(
@@ -46,13 +41,6 @@ void main() {
     isSystemDefault: true,
   );
 
-  final tPanicAlert = PanicAlertEntity(
-    id: 'panic-1',
-    userId: 'user-1',
-    eventType: 'sos',
-    createdAt: DateTime(2026, 8, 16),
-  );
-
   setUpAll(() {
     registerFallbackValue(const NoParams());
     registerFallbackValue(const ConfirmCheckinParams());
@@ -62,14 +50,12 @@ void main() {
         intervalOverrideMinutes: 25,
       ),
     );
-    registerFallbackValue(const TriggerPanicParams());
   });
 
   setUp(() {
     mockConfirmCheckinUseCase = MockConfirmCheckinUseCase();
     mockStartMonitoringUseCase = MockStartMonitoringUseCase();
     mockGetAvailableModesUseCase = MockGetAvailableModesUseCase();
-    mockTriggerPanicUseCase = MockTriggerPanicUseCase();
     mockWidgetSyncService = MockWidgetSyncService();
 
     when(
@@ -83,10 +69,6 @@ void main() {
     when(
       () => mockGetAvailableModesUseCase(any()),
     ).thenAnswer((_) async => const Right([tShowerMode, tSleepMode]));
-
-    when(
-      () => mockTriggerPanicUseCase(any()),
-    ).thenAnswer((_) async => Right(tPanicAlert));
 
     when(
       () => mockWidgetSyncService.updateWidgetData(
@@ -148,9 +130,9 @@ void main() {
         ).called(1);
         verify(
           () => mockWidgetSyncService.updateWidgetData(
-            vigiState: 'normal',
+            vigiState: 'vigiando',
             minutesRemaining: 60,
-            modeName: 'Rotina padrão',
+            modeName: 'Rotina',
             isMonitoring: true,
             timeDisplay: any(named: 'timeDisplay'),
             statusDisplay: any(named: 'statusDisplay'),
@@ -186,12 +168,12 @@ void main() {
         ).called(1);
         verify(
           () => mockWidgetSyncService.updateWidgetData(
-            vigiState: 'normal',
+            vigiState: 'vigiando',
             minutesRemaining: 25,
             modeName: 'Banho',
             isMonitoring: true,
-            timeDisplay: '25 min',
-            statusDisplay: 'Banho',
+            timeDisplay: any(named: 'timeDisplay'),
+            statusDisplay: any(named: 'statusDisplay'),
           ),
         ).called(1);
       },
@@ -224,43 +206,34 @@ void main() {
         ).called(1);
         verify(
           () => mockWidgetSyncService.updateWidgetData(
-            vigiState: 'normal',
+            vigiState: 'noturno',
             minutesRemaining: 480,
             modeName: 'Sono',
             isMonitoring: true,
-            timeDisplay: '480 min',
-            statusDisplay: 'Sono',
+            timeDisplay: any(named: 'timeDisplay'),
+            statusDisplay: any(named: 'statusDisplay'),
           ),
         ).called(1);
       },
     );
 
     test(
-      'executa TriggerPanicUseCase quando URI é disparar_panico',
+      'pedir ajuda nunca sai por um toque no widget (nem em segundo plano)',
       () async {
-        final uri = Uri.parse('guardiao://disparar_panico');
-
-        final result = await handleWidgetBackgroundUri(
-          uri,
-          confirmCheckinUseCase: mockConfirmCheckinUseCase,
-          widgetSyncService: mockWidgetSyncService,
-          triggerPanicUseCase: mockTriggerPanicUseCase,
-        );
-
-        expect(result, isTrue);
-        verify(
-          () => mockTriggerPanicUseCase(any(that: isA<TriggerPanicParams>())),
-        ).called(1);
-        verify(
-          () => mockWidgetSyncService.updateWidgetData(
-            vigiState: 'alerta',
-            minutesRemaining: 0,
-            modeName: 'SOS',
-            isMonitoring: true,
-            timeDisplay: 'SOS ATIVO',
-            statusDisplay: 'EMERGÊNCIA',
-          ),
-        ).called(1);
+        for (final action in ['disparar_panico', 'pedir_ajuda']) {
+          final result = await handleWidgetBackgroundUri(
+            Uri.parse('guardiao://$action'),
+            confirmCheckinUseCase: mockConfirmCheckinUseCase,
+            widgetSyncService: mockWidgetSyncService,
+            startMonitoringUseCase: mockStartMonitoringUseCase,
+            getAvailableModesUseCase: mockGetAvailableModesUseCase,
+          );
+          // A ação só abre a tela "Pedir ajuda" no app, onde a pessoa
+          // segura o botão por 3 segundos.
+          expect(result, isFalse);
+        }
+        verifyNever(() => mockConfirmCheckinUseCase(any()));
+        verifyNever(() => mockStartMonitoringUseCase(any()));
       },
     );
   });

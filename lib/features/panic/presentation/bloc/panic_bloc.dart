@@ -7,7 +7,9 @@ import '../../domain/usecases/trigger_panic_usecase.dart';
 import 'panic_event.dart';
 import 'panic_state.dart';
 
-/// Pânico: registra o evento e envia SMS aos contatos, mesmo com o servidor fora do ar.
+/// Pedido de ajuda: registra o evento e envia SMS aos contatos, mesmo com o
+/// servidor fora do ar. Ao cancelar, avisa os mesmos contatos de que está
+/// tudo bem.
 class PanicBloc extends Bloc<PanicEvent, PanicState> {
   PanicBloc({
     required this.triggerPanicUseCase,
@@ -61,9 +63,21 @@ class PanicBloc extends Bloc<PanicEvent, PanicState> {
 
     emit(
       PanicActive(
-        alert,
+        alert.latitude == null && dispatch?.latitude != null
+            ? PanicAlertEntity(
+                id: alert.id,
+                userId: alert.userId,
+                eventType: alert.eventType,
+                latitude: dispatch!.latitude,
+                longitude: dispatch.longitude,
+                createdAt: alert.createdAt,
+              )
+            : alert,
         contactsFound: dispatch?.contactsFound,
         smsSent: dispatch?.smsSent,
+        deliveries: dispatch?.deliveries ?? const [],
+        sentAt: dispatch?.sentAt,
+        address: dispatch?.address,
       ),
     );
   }
@@ -72,11 +86,26 @@ class PanicBloc extends Bloc<PanicEvent, PanicState> {
     PanicResolved event,
     Emitter<PanicState> emit,
   ) async {
+    final previous = state;
+    final notified = previous is PanicActive && (previous.smsSent ?? 0) > 0;
+
     emit(const PanicLoading());
     final result = await resolvePanicUseCase(const NoParams());
+
+    // Quem recebeu o pedido de ajuda também recebe o cancelamento, mesmo
+    // que o registro no servidor tenha falhado (o SMS segue pela operadora).
+    if (notified) {
+      await emergencyDispatcher?.dispatchAllClear();
+    }
+
     result.fold(
-      (failure) => emit(PanicFailure(failure.message)),
-      (_) => emit(const PanicResolvedState()),
+      (failure) {
+        emit(PanicFailure(failure.message));
+        // Sem conexão o pedido continua visível, para a pessoa tentar de novo.
+        if (previous is PanicActive && !notified) emit(previous);
+        if (notified) emit(PanicResolvedState(contactsNotified: notified));
+      },
+      (_) => emit(PanicResolvedState(contactsNotified: notified)),
     );
   }
 }

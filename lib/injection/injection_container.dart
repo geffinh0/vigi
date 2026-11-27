@@ -3,10 +3,12 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/network/network_info.dart';
+import '../core/services/address_resolver.dart';
 import '../core/services/alarm_service.dart';
 import '../core/services/emergency_dispatcher.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/push_service.dart';
+import '../core/services/system_health_service.dart';
 import '../core/services/widget_sync_service.dart';
 import '../core/utils/clock.dart';
 import '../core/utils/ticker.dart';
@@ -22,6 +24,7 @@ import '../features/checkin/data/repositories/checkin_repository_impl.dart';
 import '../features/checkin/domain/repositories/checkin_repository.dart';
 import '../features/checkin/domain/usecases/confirm_checkin_usecase.dart';
 import '../features/checkin/domain/usecases/create_custom_mode_usecase.dart';
+import '../features/checkin/domain/usecases/extend_deadline_usecase.dart';
 import '../features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import '../features/checkin/domain/usecases/get_monitoring_status_usecase.dart';
 import '../features/checkin/domain/usecases/save_monitoring_settings_usecase.dart';
@@ -151,7 +154,24 @@ Future<void> initDependencies() async {
   // ── Emergency Dispatcher (SMS aos contatos de emergência) ──────
   if (client != null && !sl.isRegistered<EmergencyDispatcher>()) {
     sl.registerLazySingleton<EmergencyDispatcher>(
-      () => EmergencyDispatcherImpl(contactsRepository: sl(), client: sl()),
+      () => EmergencyDispatcherImpl(
+        contactsRepository: sl(),
+        client: sl(),
+        addressResolver: const GeocodingAddressResolver(),
+      ),
+    );
+  }
+
+  // ── Saúde do sistema (faixa "falhar alto" da tela inicial) ─────
+  if (!sl.isRegistered<SystemHealthService>()) {
+    sl.registerLazySingleton<SystemHealthService>(
+      () => SystemHealthServiceImpl(
+        notificationService: sl(),
+        networkInfo: sl(),
+        emergencyDispatcher: sl.isRegistered<EmergencyDispatcher>()
+            ? sl<EmergencyDispatcher>()
+            : null,
+      ),
     );
   }
 
@@ -174,6 +194,7 @@ Future<void> initDependencies() async {
     ..registerLazySingleton(() => SaveMonitoringSettingsUseCase(sl()))
     ..registerLazySingleton(() => StartMonitoringUseCase(sl(), sl()))
     ..registerLazySingleton(() => ConfirmCheckinUseCase(sl()))
+    ..registerLazySingleton(() => ExtendDeadlineUseCase(sl()))
     ..registerLazySingleton(() => StopMonitoringUseCase(sl()))
     ..registerLazySingleton(() => GetMonitoringStatusUseCase(sl()))
     ..registerFactory(
@@ -189,10 +210,21 @@ Future<void> initDependencies() async {
         clock: sl(),
         alarmService: sl(),
         notificationService: sl(),
+        extendDeadlineUseCase: sl(),
         widgetSyncService: sl(),
         emergencyDispatcher: sl.isRegistered<EmergencyDispatcher>()
             ? sl<EmergencyDispatcher>()
             : null,
+        firstNameProvider: () =>
+            client?.auth.currentUser?.userMetadata?['full_name'] as String?,
+        contactNamesProvider: () async {
+          if (!sl.isRegistered<ContactsRepository>()) return const <String>[];
+          final result = await sl<ContactsRepository>().getContacts();
+          return result.fold(
+            (_) => const <String>[],
+            (contacts) => contacts.map((c) => c.name).toList(),
+          );
+        },
       ),
     );
 

@@ -4,12 +4,26 @@ import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/config/app_config.dart';
-import 'core/services/emergency_dispatcher.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/push_service.dart';
+import 'core/services/secure_local_storage.dart';
 import 'core/services/widget_background_handler.dart';
 import 'core/utils/logger.dart';
 import 'injection/injection_container.dart' as di;
+
+/// Onde a sessão do Supabase fica guardada: no armazenamento seguro do
+/// sistema (Keystore no Android, Keychain no iOS). Na web o navegador não
+/// oferece equivalente, então vale o padrão do SDK.
+LocalStorage? _sessionStorage(String supabaseUrl) {
+  if (kIsWeb) return null;
+  final key = 'sb-${Uri.parse(supabaseUrl).host.split('.').first}-auth-token';
+  return SecureLocalStorage(
+    persistSessionKey: key,
+    // Mesma chave que o SDK usava em SharedPreferences: quem já estava
+    // logado continua logado depois de atualizar o app.
+    legacy: SharedPreferencesLocalStorage(persistSessionKey: key),
+  );
+}
 
 /// Função de bootstrap que inicializa bindings, injeção e tratamento de erros.
 Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
@@ -37,6 +51,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
         url: AppConfig.supabaseUrl,
         // ignore: deprecated_member_use -- compatibilidade com supabase_flutter v2
         anonKey: AppConfig.supabasePublishableKey,
+        authOptions: FlutterAuthClientOptions(
+          localStorage: _sessionStorage(AppConfig.supabaseUrl),
+        ),
       );
     }
   } catch (e, stack) {
@@ -63,11 +80,9 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
     AppLogger.error('Erro ao inicializar PushService: $e', e, stack);
   }
 
-  // Pede antecipadamente as permissões de SMS e localização, para que no
-  // momento da emergência o alerta saia sem nenhum diálogo pendente.
-  if (di.sl.isRegistered<EmergencyDispatcher>()) {
-    unawaited(di.sl<EmergencyDispatcher>().ensurePermissions());
-  }
+  // As permissões (notificações, SMS, localização, bateria) não são pedidas
+  // aqui: depois do login, a tela "Permissões" explica cada uma antes de o
+  // sistema perguntar, e a tela inicial avisa o que estiver faltando.
 
   // Registra callback interativo para o Widget de Tela Inicial
   try {

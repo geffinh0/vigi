@@ -153,8 +153,8 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
       (name) => emit(
         state.copyWith(
           infoMessage:
-              'Pedido enviado! ${name.isEmpty ? 'A pessoa' : name} precisa '
-              'tocar em "Permitir" no app VIGI do celular.',
+              'Pedido enviado. ${name.isEmpty ? 'A pessoa' : name} precisa '
+              'tocar em "Permitir" no Vigi do celular.',
         ),
       ),
     );
@@ -247,8 +247,8 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
       state.copyWith(
         alertSignal: state.alertSignal + 1,
         alertText: isPanic
-            ? '$name acionou o botão de pânico!'
-            : '$name não respondeu ao check-in!',
+            ? '$name pediu ajuda.'
+            : '$name não respondeu ao check-in.',
       ),
     );
   }
@@ -270,7 +270,7 @@ class FamilyDashboardCubit extends Cubit<FamilyDashboardState> {
         modeName: snapshot?.activeModeId == null
             ? null
             : _modeNames[snapshot!.activeModeId],
-        recentEvents: events.take(5).toList(),
+        recentEvents: events.take(12).toList(),
       );
     }).toList();
 

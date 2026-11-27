@@ -1,17 +1,22 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fpdart/fpdart.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/services/alarm_service.dart';
+import '../../../../core/services/checkin_messages.dart';
 import '../../../../core/services/emergency_dispatcher.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/widget_sync_service.dart';
+import '../../../../core/theme/vigi_state.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/clock.dart';
 import '../../../../core/utils/ticker.dart';
-import '../../../../core/widgets/vigi_mascot.dart';
+import '../../../../core/utils/vigi_text.dart';
+import '../../domain/entities/checkin_schedule.dart';
 import '../../domain/entities/monitoring_mode_entity.dart';
 import '../../domain/usecases/confirm_checkin_usecase.dart';
 import '../../domain/usecases/create_custom_mode_usecase.dart';
+import '../../domain/usecases/extend_deadline_usecase.dart';
 import '../../domain/usecases/get_available_modes_usecase.dart';
 import '../../domain/usecases/get_monitoring_status_usecase.dart';
 import '../../domain/usecases/save_monitoring_settings_usecase.dart';
@@ -20,7 +25,21 @@ import '../../domain/usecases/stop_monitoring_usecase.dart';
 import 'checkin_event.dart';
 import 'checkin_state.dart';
 
-/// Coração do dead man's switch no app: contagem regressiva, alarme no prazo, escalonamento aos contatos após a tolerância e confirmação (inclusive offline).
+/// Coração do dead man's switch no app. Conduz a escada de estados:
+///
+/// ```text
+/// Vigiando → Sua vez → Última chamada → Alerta
+///     ↑__________ Aliviado ←______________|   (a qualquer momento, ao confirmar)
+/// ```
+///
+/// - **Vigiando**: contagem regressiva em silêncio.
+/// - **Sua vez**: o prazo chegou; chamada gentil, com "Estou bem" e
+///   "Preciso de mais 10 minutos" (uma vez por ciclo).
+/// - **Última chamada**: minutos finais da tolerância; alarme em tela cheia.
+/// - **Alerta**: sem resposta, os contatos são avisados por SMS e push.
+///
+/// A confirmação funciona sem internet: o ciclo local recomeça e o servidor é
+/// atualizado quando a conexão voltar.
 class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   CheckinBloc({
     required this.startMonitoringUseCase,
@@ -34,9 +53,12 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     required this.clock,
     required this.alarmService,
     required this.notificationService,
+    this.extendDeadlineUseCase,
     this.widgetSyncService = const WidgetSyncServiceImpl(),
     this.emergencyDispatcher,
-    this.escalationDelay = const Duration(seconds: 60),
+    this.escalationDelay,
+    this.firstNameProvider,
+    this.contactNamesProvider,
   }) : super(const CheckinInitial()) {
     on<LoadCheckinStatusRequested>(_onLoadCheckinStatusRequested);
     on<LoadAvailableModesRequested>(_onLoadAvailableModesRequested);
@@ -45,8 +67,10 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     on<StartMonitoringRequested>(_onStartMonitoringRequested);
     on<CreateCustomModeRequested>(_onCreateCustomModeRequested);
     on<ConfirmCheckinRequested>(_onConfirmCheckinRequested);
+    on<SnoozeCheckinRequested>(_onSnoozeCheckinRequested);
     on<StopMonitoringRequested>(_onStopMonitoringRequested);
     on<CheckinTickReceived>(_onCheckinTickReceived);
+    on<CheckinGraceTickReceived>(_onCheckinGraceTickReceived);
     on<CheckinEscalationRequested>(_onCheckinEscalationRequested);
   }
 
@@ -63,57 +87,97 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
   final NotificationService notificationService;
   final WidgetSyncService widgetSyncService;
 
-  /// Aciona os contatos de emergência quando o alarme não é respondido.
+  /// Adia o prazo no servidor ("Preciso de mais 10 minutos"). Opcional para
+  /// permitir testes isolados.
+  final ExtendDeadlineUseCase? extendDeadlineUseCase;
+
+  /// Aciona os contatos de emergência quando a chamada não é respondida.
   /// Opcional para permitir testes isolados do fluxo de contagem.
   final EmergencyDispatcher? emergencyDispatcher;
 
-  /// Tolerância entre o alarme local e o acionamento dos contatos.
-  final Duration escalationDelay;
+  /// Tolerância entre o prazo e o aviso aos contatos. `null` usa a regra do
+  /// produto ([CheckinSchedule.graceFor]): 15 minutos, limitados ao intervalo.
+  final Duration? escalationDelay;
+
+  /// Primeiro nome da pessoa, para a chamada ("Tudo bem por aí, Lúcia?").
+  final String? Function()? firstNameProvider;
+
+  /// Nomes de quem será avisado ("...vamos avisar Maria e João.").
+  final Future<List<String>> Function()? contactNamesProvider;
 
   StreamSubscription<int>? _tickerSubscription;
-  Timer? _escalationTimer;
-  Timer? _confirmRetryTimer;
+  StreamSubscription<int>? _graceSubscription;
+  Timer? _serverRetryTimer;
   int _currentIntervalMinutes = 60;
   int _savedRoutineIntervalMinutes = 60;
   List<MonitoringModeEntity> _availableModes = [];
   MonitoringModeEntity? _selectedMode;
   MonitoringModeEntity? _activeMode;
+  List<String> _contactNames = const [];
+
+  /// "Preciso de mais 10 minutos" já usado neste ciclo.
+  bool _snoozeUsed = false;
+
+  /// Até quando o estado "Aliviado" fica na tela.
+  DateTime? _reliefUntil;
+  bool _reliefAfterAlert = false;
 
   MonitoringModeEntity? _findRoutineMode(List<MonitoringModeEntity> modes) {
-    return modes
-            .where(
-              (m) =>
-                  m.iconKey == 'routine' ||
-                  m.name.toLowerCase().contains('rotina'),
-            )
-            .firstOrNull ??
+    return modes.where((m) => m.isRoutine).firstOrNull ??
         modes.where((m) => m.isSystemDefault).firstOrNull ??
         modes.firstOrNull;
   }
 
-  bool _isTemporaryMode(MonitoringModeEntity? mode) {
-    if (mode == null) return false;
-    final nameLower = mode.name.toLowerCase();
-    return mode.iconKey == 'shower' ||
-        nameLower.contains('banho') ||
-        mode.iconKey == 'sleep' ||
-        nameLower.contains('sono');
+  String get _firstName => VigiText.firstName(firstNameProvider?.call());
+
+  Future<List<String>> _loadContactNames() async {
+    final provider = contactNamesProvider;
+    if (provider == null) return _contactNames;
+    try {
+      _contactNames = await provider();
+    } catch (_) {
+      // Sem os nomes a chamada diz "seus contatos".
+    }
+    return _contactNames;
   }
 
-  void _syncWidget({
-    required String vigiState,
-    required int minutesRemaining,
-    required bool isMonitoring,
-    String? timeDisplay,
+  Duration get _grace =>
+      escalationDelay ?? CheckinSchedule.graceFor(_currentIntervalMinutes);
+
+  CheckinCallInfo _callInfo(DateTime deadline) {
+    final grace = _grace;
+    return CheckinCallInfo(
+      deadline: deadline,
+      lastCallAt: CheckinSchedule.lastCallAt(deadline, grace),
+      escalatesAt: CheckinSchedule.escalatesAt(deadline, grace),
+      firstName: _firstName,
+      contactNames: _contactNames,
+      canSnooze: !_snoozeUsed,
+    );
+  }
+
+  /// O widget da tela inicial só precisa mudar quando o degrau muda: ele
+  /// mostra o horário absoluto do próximo check-in, não uma contagem.
+  void _syncWidget(
+    VigiState vigiState, {
+    DateTime? deadline,
     String? statusDisplay,
   }) {
+    final isMonitoring = vigiState != VigiState.descansando;
+    final minutes = deadline == null
+        ? _currentIntervalMinutes
+        : (deadline.difference(clock.now()).inSeconds / 60).ceil().clamp(
+            0,
+            1 << 20,
+          );
     unawaited(
       widgetSyncService.updateWidgetData(
-        vigiState: vigiState,
-        minutesRemaining: minutesRemaining,
-        modeName: _activeMode?.name ?? _selectedMode?.name ?? 'Rotina padrão',
+        vigiState: vigiState.name,
+        minutesRemaining: minutes,
+        modeName:
+            _activeMode?.shortName ?? _selectedMode?.shortName ?? 'Rotina',
         isMonitoring: isMonitoring,
-        timeDisplay: timeDisplay,
+        timeDisplay: deadline == null ? null : VigiText.clock(deadline),
         statusDisplay: statusDisplay,
       ),
     );
@@ -171,7 +235,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         }
 
         if (status.active && status.nextDeadline != null) {
-          _startTicker(status.nextDeadline!, activeMode: _activeMode);
+          _beginCycle(status.nextDeadline!, keepSnooze: true);
         } else {
           _selectedMode =
               _activeMode ??
@@ -179,12 +243,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
                   .where((m) => m.id == status.activeModeId)
                   .firstOrNull ??
               routineMode;
+          _activeMode = null;
 
-          _syncWidget(
-            vigiState: 'normal',
-            minutesRemaining: _currentIntervalMinutes,
-            isMonitoring: false,
-          );
+          _syncWidget(VigiState.descansando);
 
           emit(
             CheckinIdle(
@@ -331,15 +392,15 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         _selectedMode ??
         (currentState is CheckinIdle ? currentState.selectedMode : null);
 
+    final previousInterval = _currentIntervalMinutes;
+    final previousMode = _activeMode;
+
     emit(const CheckinLoading());
 
     final effectiveInterval =
         event.intervalOverrideMinutes ??
         mode?.defaultIntervalMinutes ??
         _currentIntervalMinutes;
-
-    _currentIntervalMinutes = effectiveInterval;
-    _activeMode = mode;
 
     final result = await startMonitoringUseCase(
       StartMonitoringParams(
@@ -351,7 +412,16 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) {
         emit(CheckinFailure(failure.message));
-        // Restaura para estado Idle
+        if (currentState is CheckinMonitoring ||
+            currentState is CheckinCalling ||
+            currentState is CheckinAlertActive) {
+          // A troca de modo falhou, mas a vigília que já estava ativa
+          // continua: nada foi cancelado.
+          _currentIntervalMinutes = previousInterval;
+          _activeMode = previousMode;
+          emit(currentState);
+          return;
+        }
         emit(
           CheckinIdle(
             intervalMinutes: _currentIntervalMinutes,
@@ -361,17 +431,27 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
         );
       },
       (_) {
-        final nextDeadline = clock.now().add(
-          Duration(minutes: effectiveInterval),
+        _currentIntervalMinutes = effectiveInterval;
+        _activeMode = mode;
+
+        // O intervalo escolhido passa a ser o padrão do modo.
+        _availableModes = modes.map((m) {
+          return m.id == event.modeId
+              ? m.copyWith(defaultIntervalMinutes: effectiveInterval)
+              : m;
+        }).toList();
+        final routineMode = _findRoutineMode(_availableModes);
+        if (routineMode != null && routineMode.id == event.modeId) {
+          _savedRoutineIntervalMinutes = effectiveInterval;
+        }
+        _activeMode =
+            _availableModes.where((m) => m.id == event.modeId).firstOrNull ??
+            mode;
+
+        _reliefUntil = null;
+        _beginCycle(
+          clock.now().add(Duration(minutes: effectiveInterval)),
         );
-        _syncWidget(
-          vigiState: 'normal',
-          minutesRemaining: effectiveInterval,
-          isMonitoring: true,
-          timeDisplay: '$effectiveInterval min',
-          statusDisplay: _activeMode?.name ?? 'Rotina padrão',
-        );
-        _startTicker(nextDeadline, activeMode: _activeMode);
       },
     );
   }
@@ -387,7 +467,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
               ? currentState.availableModes
               : <MonitoringModeEntity>[]);
 
-    emit(const CheckinLoading());
+    final wasActive = currentState is CheckinMonitoring;
+    if (!wasActive) emit(const CheckinLoading());
+
     final result = await createCustomModeUseCase(
       CreateCustomModeParams(
         name: event.name,
@@ -399,6 +481,10 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) {
         emit(CheckinFailure(failure.message));
+        if (wasActive) {
+          emit(currentState);
+          return;
+        }
         emit(
           CheckinIdle(
             intervalMinutes: _currentIntervalMinutes,
@@ -409,6 +495,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       },
       (createdMode) {
         _availableModes = [...currentModes, createdMode];
+        // Com a vigília ativa, o novo modo só entra na lista: o próximo
+        // pulso da contagem já o inclui.
+        if (wasActive) return;
         _selectedMode = createdMode;
         _currentIntervalMinutes = createdMode.defaultIntervalMinutes;
         emit(
@@ -426,8 +515,9 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     ConfirmCheckinRequested event,
     Emitter<CheckinState> emit,
   ) async {
-    // Interrompe o alarme se estiver soando
-    _escalationTimer?.cancel();
+    // Silencia a chamada, se estiver tocando.
+    unawaited(_graceSubscription?.cancel());
+    _graceSubscription = null;
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
 
@@ -438,9 +528,23 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       return;
     }
 
+    final resolvesAlert = currentState is CheckinAlertActive;
+
+    // Se a pessoa estava em modo temporário (Banho ou Sono), ao confirmar
+    // volta automaticamente para a Rotina, com o intervalo dela.
+    if (_activeMode?.isTemporary ?? false) {
+      final routineMode = _findRoutineMode(_availableModes);
+      _activeMode = routineMode;
+      _currentIntervalMinutes =
+          routineMode?.defaultIntervalMinutes ?? _savedRoutineIntervalMinutes;
+    }
+
     final params = ConfirmCheckinParams(
       latitude: event.latitude,
       longitude: event.longitude,
+      intervalMinutes: _currentIntervalMinutes,
+      modeId: _activeMode?.id,
+      resolvesAlert: resolvesAlert,
     );
     final result = await confirmCheckinUseCase(params);
     final failure = result.getLeft().toNullable();
@@ -449,7 +553,7 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
       return;
     }
     if (failure == null) {
-      _confirmRetryTimer?.cancel();
+      _serverRetryTimer?.cancel();
     } else {
       // Sem conexão: a pessoa RESPONDEU, então o ciclo local continua (não pode
       // ficar preso no alerta sem proteção); o servidor é atualizado depois.
@@ -459,39 +563,67 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
           'Será enviada ao servidor quando a internet voltar.',
         ),
       );
-      _scheduleConfirmRetry(params);
+      _scheduleServerRetry(() => confirmCheckinUseCase(params));
     }
 
-    // Se o usuário estava em modo temporário (Banho ou Sono), ao confirmar presença
-    // retorna automaticamente para o modo de Rotina padrão com seu respectivo intervalo.
-    if (_isTemporaryMode(_activeMode)) {
-      final routineMode = _findRoutineMode(_availableModes);
-      _activeMode = routineMode;
-      _currentIntervalMinutes =
-          routineMode?.defaultIntervalMinutes ?? _savedRoutineIntervalMinutes;
+    // Quem recebeu o susto também recebe o alívio.
+    if (resolvesAlert) {
+      unawaited(emergencyDispatcher?.dispatchAllClear());
     }
 
-    final nextDeadline = clock.now().add(
-      Duration(minutes: _currentIntervalMinutes),
+    // Aliviado: a coruja pisca, uma vibração única e suave, e o agradecimento.
+    unawaited(alarmService.confirmFeedback());
+    _reliefUntil = clock.now().add(const Duration(seconds: 3));
+    _reliefAfterAlert = resolvesAlert;
+
+    _beginCycle(
+      clock.now().add(Duration(minutes: _currentIntervalMinutes)),
     );
-    _syncWidget(
-      vigiState: 'normal',
-      minutesRemaining: _currentIntervalMinutes,
-      isMonitoring: true,
-    );
-    _startTicker(nextDeadline, activeMode: _activeMode);
   }
 
-  /// Reenvia a confirmação ao servidor a cada 30 s até conseguir, para o
-  /// dead man's switch do servidor não alertar a família por engano.
-  void _scheduleConfirmRetry(ConfirmCheckinParams params, [int attempt = 1]) {
-    _confirmRetryTimer?.cancel();
+  /// "Preciso de mais 10 minutos": adia o prazo, uma única vez por ciclo.
+  Future<void> _onSnoozeCheckinRequested(
+    SnoozeCheckinRequested event,
+    Emitter<CheckinState> emit,
+  ) async {
+    final current = state;
+    if (current is! CheckinCalling || !current.canSnooze || _snoozeUsed) {
+      return;
+    }
+
+    _snoozeUsed = true;
+    unawaited(_graceSubscription?.cancel());
+    _graceSubscription = null;
+    unawaited(alarmService.stopAlert());
+    unawaited(notificationService.cancelAlert());
+
+    final newDeadline = clock.now().add(CheckinSchedule.snooze);
+    final extend = extendDeadlineUseCase;
+    if (extend != null) {
+      final result = await extend(newDeadline);
+      if (result.isLeft()) {
+        // Sem conexão o adiamento vale no aparelho; o servidor é avisado
+        // assim que possível para não alertar a família por engano.
+        _scheduleServerRetry(() => extend(newDeadline));
+      }
+    }
+
+    _beginCycle(newDeadline, keepSnooze: true);
+  }
+
+  /// Reenvia ao servidor a cada 30 s até conseguir, para o dead man's switch
+  /// do servidor não alertar a família por engano.
+  void _scheduleServerRetry(
+    Future<Either<Failure, void>> Function() operation, [
+    int attempt = 1,
+  ]) {
+    _serverRetryTimer?.cancel();
     if (attempt > 20) return;
-    _confirmRetryTimer = Timer(const Duration(seconds: 30), () async {
+    _serverRetryTimer = Timer(const Duration(seconds: 30), () async {
       if (isClosed) return;
-      final retry = await confirmCheckinUseCase(params);
+      final retry = await operation();
       if (retry.isLeft() && !isClosed) {
-        _scheduleConfirmRetry(params, attempt + 1);
+        _scheduleServerRetry(operation, attempt + 1);
       }
     });
   }
@@ -501,7 +633,8 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     Emitter<CheckinState> emit,
   ) async {
     await _tickerSubscription?.cancel();
-    _escalationTimer?.cancel();
+    await _graceSubscription?.cancel();
+    _graceSubscription = null;
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
 
@@ -510,17 +643,19 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     result.fold(
       (failure) => emit(CheckinFailure(failure.message)),
       (_) {
+        _selectedMode =
+            _findRoutineMode(_availableModes) ?? _activeMode ?? _selectedMode;
         _activeMode = null;
+        _snoozeUsed = false;
+        _reliefUntil = null;
         unawaited(notificationService.cancelScheduledAlarm());
         unawaited(notificationService.cancelMonitoringOngoing());
-        _syncWidget(
-          vigiState: 'normal',
-          minutesRemaining: _currentIntervalMinutes,
-          isMonitoring: false,
-        );
+        _syncWidget(VigiState.descansando);
         emit(
           CheckinIdle(
-            intervalMinutes: _currentIntervalMinutes,
+            intervalMinutes:
+                _selectedMode?.defaultIntervalMinutes ??
+                _currentIntervalMinutes,
             availableModes: _availableModes,
             selectedMode: _selectedMode,
           ),
@@ -529,18 +664,30 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     );
   }
 
-  void _startTicker(DateTime deadline, {MonitoringModeEntity? activeMode}) {
+  /// Começa (ou retoma) um ciclo de vigília que vence em [deadline].
+  void _beginCycle(DateTime deadline, {bool keepSnooze = false}) {
+    if (!keepSnooze) _snoozeUsed = false;
     unawaited(_tickerSubscription?.cancel());
+    unawaited(_graceSubscription?.cancel());
+    _graceSubscription = null;
 
-    // Agenda alarme de hardware exato (AlarmManager) para acordar o celular mesmo com app fechado
-    unawaited(notificationService.scheduleTimeoutAlarm(deadline));
+    final activeMode = _activeMode;
 
-    // Exibe notificação persistente de monitoramento em segundo plano (Ongoing)
+    // Agenda a chamada e a última chamada no sistema (AlarmManager): elas
+    // tocam mesmo com o app fechado.
+    unawaited(_scheduleCall(deadline));
+
+    // Notificação persistente e discreta enquanto o Vigi vigia.
     unawaited(
       notificationService.showMonitoringOngoing(
-        modeName: activeMode?.name ?? 'Rotina padrão',
+        modeName: activeMode?.shortName ?? 'Rotina',
         nextDeadline: deadline,
       ),
+    );
+
+    _syncWidget(
+      (activeMode?.isSleep ?? false) ? VigiState.noturno : VigiState.vigiando,
+      deadline: deadline,
     );
 
     _tickerSubscription = ticker.secondsUntil(deadline, clock: clock).listen((
@@ -556,134 +703,206 @@ class CheckinBloc extends Bloc<CheckinEvent, CheckinState> {
     });
   }
 
+  Future<void> _scheduleCall(DateTime deadline) async {
+    await _loadContactNames();
+    if (isClosed) return;
+    await notificationService.scheduleCheckinCall(_callInfo(deadline));
+  }
+
   void _onCheckinTickReceived(
     CheckinTickReceived event,
     Emitter<CheckinState> emit,
   ) {
     if (event.remainingSeconds <= 0) {
-      unawaited(_tickerSubscription?.cancel());
-      unawaited(notificationService.cancelMonitoringOngoing());
-
-      // Aciona som insistente, vibração contínua e notificação de alta prioridade
-      unawaited(alarmService.startAlert());
-      unawaited(notificationService.showTimeoutAlert());
-
-      _syncWidget(
-        vigiState: 'alerta',
-        minutesRemaining: 0,
-        isMonitoring: true,
-        timeDisplay: 'Expirado',
-        statusDisplay: 'Alerta: ${event.activeMode?.name ?? "Rotina"}',
-      );
-
-      DateTime? escalatesAt;
-      if (emergencyDispatcher != null) {
-        escalatesAt = clock.now().add(escalationDelay);
-        _escalationTimer?.cancel();
-        _escalationTimer = Timer(escalationDelay, () {
-          if (!isClosed) add(const CheckinEscalationRequested());
-        });
-      }
-
-      emit(
-        CheckinAlertActive(
-          expiredAt: event.nextDeadline,
-          activeMode: event.activeMode,
-          escalatesAt: escalatesAt,
-        ),
-      );
+      _enterCalling(event.nextDeadline, event.activeMode, emit);
       return;
     }
 
-    final totalSec = _currentIntervalMinutes * 60;
-    final fractionRemaining = totalSec > 0
-        ? event.remainingSeconds / totalSec
-        : 1.0;
-
-    VigiState vigiState;
-    if (fractionRemaining > 0.3) {
-      vigiState = VigiState.normal;
-    } else {
-      vigiState = VigiState.atento;
-    }
-
-    final mins = event.remainingSeconds ~/ 60;
-    final secs = event.remainingSeconds % 60;
-    final String timeDisplay;
-    if (mins > 0 && secs == 0) {
-      timeDisplay = '$mins min';
-    } else if (mins > 0) {
-      timeDisplay = '${mins}m ${secs.toString().padLeft(2, '0')}s';
-    } else {
-      timeDisplay = '${secs}s';
-    }
-
-    final remainingMins = (event.remainingSeconds / 60).ceil();
-    _syncWidget(
-      vigiState: vigiState.name,
-      minutesRemaining: remainingMins,
-      isMonitoring: true,
-      timeDisplay: timeDisplay,
-      statusDisplay: event.activeMode?.name ?? 'Rotina padrão',
-    );
+    final relief = _reliefUntil;
+    final relieved = relief != null && clock.now().isBefore(relief);
+    if (!relieved) _reliefUntil = null;
 
     emit(
       CheckinMonitoring(
         remainingSeconds: event.remainingSeconds,
-        totalSeconds: totalSec,
+        totalSeconds: _currentIntervalMinutes * 60,
         nextDeadline: event.nextDeadline,
-        vigiState: vigiState,
         activeMode: event.activeMode,
+        availableModes: _availableModes,
+        relieved: relieved,
+        reliefAfterAlert: relieved && _reliefAfterAlert,
       ),
     );
   }
 
-  /// Dead man's switch: o usuário não respondeu ao alarme dentro da tolerância,
-  /// então os contatos de emergência são avisados automaticamente.
+  /// O prazo chegou: "Sua vez".
+  void _enterCalling(
+    DateTime deadline,
+    MonitoringModeEntity? activeMode,
+    Emitter<CheckinState> emit,
+  ) {
+    unawaited(_tickerSubscription?.cancel());
+    unawaited(notificationService.cancelMonitoringOngoing());
+    _reliefUntil = null;
+
+    final now = clock.now();
+    final grace = _grace;
+    var escalatesAt = CheckinSchedule.escalatesAt(deadline, grace);
+
+    // Quem abre o app com o prazo vencido há muito tempo ainda ganha um
+    // tempo mínimo para responder antes de os contatos serem avisados.
+    final minimum = now.add(
+      escalationDelay ?? CheckinSchedule.minimumResponse,
+    );
+    if (escalatesAt.isBefore(minimum)) escalatesAt = minimum;
+
+    final window = CheckinSchedule.lastCallWindow(grace);
+    final lastCallAt = escalatesAt.subtract(window);
+    final lastCall = !now.isBefore(lastCallAt);
+
+    final info = CheckinCallInfo(
+      deadline: deadline,
+      lastCallAt: lastCallAt,
+      escalatesAt: escalatesAt,
+      firstName: _firstName,
+      contactNames: _contactNames,
+      canSnooze: !_snoozeUsed,
+    );
+
+    if (lastCall) {
+      unawaited(_ringLastCall(info));
+    } else {
+      // A primeira chamada sai pela notificação; o serviço repete a cada 30 s.
+      unawaited(alarmService.startCall());
+      unawaited(notificationService.showCheckinCall(info));
+    }
+    _syncWidget(
+      lastCall ? VigiState.ultimaChamada : VigiState.suaVez,
+      deadline: escalatesAt,
+    );
+
+    unawaited(_graceSubscription?.cancel());
+    _graceSubscription = ticker
+        .secondsUntil(escalatesAt, clock: clock)
+        .listen((remaining) => add(CheckinGraceTickReceived(remaining)));
+
+    emit(
+      CheckinCalling(
+        deadline: deadline,
+        lastCallAt: lastCallAt,
+        escalatesAt: escalatesAt,
+        lastCall: lastCall,
+        canSnooze: !_snoozeUsed,
+        activeMode: activeMode,
+      ),
+    );
+  }
+
+  Future<void> _ringLastCall(CheckinCallInfo info) async {
+    // Com as notificações ligadas o alarme vem da própria notificação (que
+    // toca até com o app fechado); sem elas, o app toca sozinho.
+    final notifications = await notificationService.areNotificationsEnabled();
+    if (isClosed) return;
+    await alarmService.startLastCall(playSound: !notifications);
+    await notificationService.showLastCall(info);
+  }
+
+  void _onCheckinGraceTickReceived(
+    CheckinGraceTickReceived event,
+    Emitter<CheckinState> emit,
+  ) {
+    final current = state;
+    if (current is! CheckinCalling) return;
+
+    if (event.remainingSeconds <= 0) {
+      unawaited(_graceSubscription?.cancel());
+      _graceSubscription = null;
+      if (emergencyDispatcher != null) add(const CheckinEscalationRequested());
+      return;
+    }
+
+    final window = current.escalatesAt.difference(current.lastCallAt);
+    if (!current.lastCall && event.remainingSeconds <= window.inSeconds) {
+      // "Última chamada": alarme contínuo, tela cheia.
+      unawaited(
+        _ringLastCall(
+          CheckinCallInfo(
+            deadline: current.deadline,
+            lastCallAt: current.lastCallAt,
+            escalatesAt: current.escalatesAt,
+            firstName: _firstName,
+            contactNames: _contactNames,
+            canSnooze: false,
+          ),
+        ),
+      );
+      _syncWidget(VigiState.ultimaChamada, deadline: current.escalatesAt);
+      emit(
+        CheckinCalling(
+          deadline: current.deadline,
+          lastCallAt: current.lastCallAt,
+          escalatesAt: current.escalatesAt,
+          lastCall: true,
+          canSnooze: current.canSnooze,
+          activeMode: current.activeMode,
+        ),
+      );
+    }
+  }
+
+  /// Dead man's switch: a pessoa não respondeu dentro da tolerância, então os
+  /// contatos de emergência são avisados automaticamente.
   Future<void> _onCheckinEscalationRequested(
     CheckinEscalationRequested event,
     Emitter<CheckinState> emit,
   ) async {
     final current = state;
     final dispatcher = emergencyDispatcher;
-    if (current is! CheckinAlertActive ||
-        current.contactsAlerted ||
-        dispatcher == null) {
-      return;
-    }
+    if (current is! CheckinCalling || dispatcher == null) return;
 
     final result = await dispatcher.dispatch(
       reason: EmergencyReason.checkinTimeout,
+      deadline: current.deadline,
     );
 
+    // A pessoa pode ter confirmado enquanto o envio acontecia: quem já
+    // recebeu o SMS precisa saber que está tudo bem.
+    if (state is! CheckinCalling) {
+      if (result.smsSent > 0) unawaited(dispatcher.dispatchAllClear());
+      return;
+    }
+
+    final alertedAt = result.sentAt ?? clock.now();
+    unawaited(alarmService.playAlertConfirmed());
     unawaited(
-      notificationService.showTimeoutAlert(
-        title: 'CONTATOS DE EMERGÊNCIA AVISADOS',
-        body: result.smsSent > 0
-            ? 'SMS enviado para ${result.smsSent} contato(s). Abra o VIGI e confirme que está bem.'
-            : 'Não foi possível enviar SMS. Abra o VIGI e confirme que está bem.',
+      notificationService.showContactsAlerted(
+        notified: result.smsSent,
+        at: alertedAt,
+        withLocation: result.hasLocation,
       ),
     );
-
-    // O usuário pode ter confirmado presença enquanto o envio acontecia.
-    if (state is! CheckinAlertActive) return;
+    _syncWidget(VigiState.alerta);
 
     emit(
       CheckinAlertActive(
-        expiredAt: current.expiredAt,
+        expiredAt: current.deadline,
+        alertedAt: alertedAt,
         activeMode: current.activeMode,
-        escalatesAt: current.escalatesAt,
         contactsFound: result.contactsFound,
         smsSent: result.smsSent,
+        deliveries: result.deliveries,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address,
       ),
     );
   }
 
   @override
   Future<void> close() async {
-    _escalationTimer?.cancel();
-    _confirmRetryTimer?.cancel();
+    _serverRetryTimer?.cancel();
     await _tickerSubscription?.cancel();
+    await _graceSubscription?.cancel();
     unawaited(alarmService.stopAlert());
     unawaited(notificationService.cancelAlert());
     unawaited(notificationService.cancelScheduledAlarm());

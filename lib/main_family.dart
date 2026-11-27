@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/config/app_config.dart';
 import 'family_web/family_web_app.dart';
 
-/// Ponto de entrada do VIGI Família: painel web (PWA) para o familiar
+/// Ponto de entrada do Vigi Família: painel web (PWA) para o familiar
 /// acompanhar, sem invadir a privacidade, quem o autorizou.
 ///
 /// flutter build web -t lib/main_family.dart

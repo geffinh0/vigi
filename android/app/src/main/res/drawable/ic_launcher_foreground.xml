@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frente do ícone adaptativo (zona segura de 66 dp). Gerado por scripts/make_icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M30.34,55.97 a10.32,10.32 0 1,0 20.65,0 a10.32,10.32 0 1,0 -20.65,0 Z"
+        android:strokeColor="#E8A33D"
+        android:strokeWidth="2.55"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M36.02,55.97 a4.64,4.64 0 1,0 9.28,0 a4.64,4.64 0 1,0 -9.28,0 Z"
+        android:fillColor="#F2EFE8" />
+    <path
+        android:pathData="M41.12,54.12 a1.39,1.39 0 1,0 2.78,0 a1.39,1.39 0 1,0 -2.78,0 Z"
+        android:fillColor="#0F2221" />
+    <path
+        android:pathData="M57.02,55.97 a10.32,10.32 0 1,0 20.65,0 a10.32,10.32 0 1,0 -20.65,0 Z"
+        android:strokeColor="#E8A33D"
+        android:strokeWidth="2.55"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M62.7,55.97 a4.64,4.64 0 1,0 9.28,0 a4.64,4.64 0 1,0 -9.28,0 Z"
+        android:fillColor="#F2EFE8" />
+    <path
+        android:pathData="M67.8,54.12 a1.39,1.39 0 1,0 2.78,0 a1.39,1.39 0 1,0 -2.78,0 Z"
+        android:fillColor="#0F2221" />
+    <path
+        android:pathData="M27.9,35.79 L54,41.82 L80.1,35.79"
+        android:strokeColor="#F2EFE8"
+        android:strokeWidth="2.55"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,62.47 L57.13,67.34 L54,72.21 L50.87,67.34 Z"
+        android:fillColor="#F2EFE8" />
+</vector>

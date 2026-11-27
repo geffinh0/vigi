@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recursos usados só pelo nome, a partir do Dart (notificações). Sem esta
+     lista, a compilação de release os removeria como "não usados" e as
+     notificações ficariam sem ícone e sem som. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_vigi,@raw/vigi_chamada,@raw/vigi_ultima_chamada" />

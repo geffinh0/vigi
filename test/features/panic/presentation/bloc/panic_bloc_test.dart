@@ -152,6 +152,79 @@ void main() {
           isA<PanicActive>().having((s) => s.smsSent, 'smsSent', 3),
         ],
       );
+
+      blocTest<PanicBloc, PanicState>(
+        'cancelar avisa os mesmos contatos de que está tudo bem',
+        build: () {
+          when(
+            () => mockResolvePanicUseCase(any()),
+          ).thenAnswer((_) async => const Right(null));
+          when(
+            () => mockDispatcher.dispatchAllClear(),
+          ).thenAnswer((_) async => 3);
+          return buildWithDispatcher();
+        },
+        seed: () => const PanicActive(
+          PanicAlertEntity(id: '1', userId: 'u1', eventType: 'panic'),
+          contactsFound: 3,
+          smsSent: 3,
+        ),
+        act: (bloc) => bloc.add(const PanicResolved()),
+        expect: () => [
+          const PanicLoading(),
+          const PanicResolvedState(contactsNotified: true),
+        ],
+        verify: (_) {
+          verify(() => mockDispatcher.dispatchAllClear()).called(1);
+        },
+      );
+
+      blocTest<PanicBloc, PanicState>(
+        'se ninguém chegou a ser avisado, cancelar não envia SMS',
+        build: () {
+          when(
+            () => mockResolvePanicUseCase(any()),
+          ).thenAnswer((_) async => const Right(null));
+          return buildWithDispatcher();
+        },
+        seed: () => const PanicActive(
+          PanicAlertEntity(id: '1', userId: 'u1', eventType: 'panic'),
+          contactsFound: 0,
+          smsSent: 0,
+        ),
+        act: (bloc) => bloc.add(const PanicResolved()),
+        expect: () => [const PanicLoading(), const PanicResolvedState()],
+        verify: (_) {
+          verifyNever(() => mockDispatcher.dispatchAllClear());
+        },
+      );
+
+      blocTest<PanicBloc, PanicState>(
+        'sem internet ao cancelar: o SMS de "está tudo bem" sai mesmo assim',
+        build: () {
+          when(
+            () => mockResolvePanicUseCase(any()),
+          ).thenAnswer((_) async => const Left(ServerFailure('offline')));
+          when(
+            () => mockDispatcher.dispatchAllClear(),
+          ).thenAnswer((_) async => 3);
+          return buildWithDispatcher();
+        },
+        seed: () => const PanicActive(
+          PanicAlertEntity(id: '1', userId: 'u1', eventType: 'panic'),
+          contactsFound: 3,
+          smsSent: 3,
+        ),
+        act: (bloc) => bloc.add(const PanicResolved()),
+        expect: () => [
+          const PanicLoading(),
+          const PanicFailure('offline'),
+          const PanicResolvedState(contactsNotified: true),
+        ],
+        verify: (_) {
+          verify(() => mockDispatcher.dispatchAllClear()).called(1);
+        },
+      );
     });
   });
 }

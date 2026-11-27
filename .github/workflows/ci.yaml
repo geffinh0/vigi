@@ -16,6 +16,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Mesma versão que gerou os goldens (test/**/goldens): a comparação
+          # de imagens depende da versão do motor de renderização.
+          flutter-version: '3.38.5'
           channel: 'stable'
           cache: true
 

@@ -10,7 +10,7 @@ import '../../domain/usecases/respond_family_link_usecase.dart';
 import 'family_event.dart';
 import 'family_state.dart';
 
-/// Tela "Família" do idoso: código VIGI, pedidos pendentes (Permitir/Recusar) e quem o acompanha.
+/// Tela "Família" do idoso: código Vigi, pedidos pendentes (Permitir/Recusar) e quem o acompanha.
 class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
   FamilyBloc({
     required this.getFamilyLinksUseCase,
@@ -73,7 +73,7 @@ class FamilyBloc extends Bloc<FamilyEvent, FamilyState> {
       (failure) => emit(FamilyFailure(failure.message)),
       (name) => emit(
         FamilyActionSuccess(
-          'Pedido enviado! Agora ${name.isEmpty ? 'a pessoa' : name} '
+          'Pedido enviado. Agora ${name.isEmpty ? 'a pessoa' : name} '
           'precisa tocar em "Permitir" no celular dela.',
         ),
       ),

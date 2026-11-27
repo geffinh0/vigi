@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Símbolo da tela de abertura, sobre Linho. Gerado por scripts/make_icons.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <path
+        android:pathData="M12.67,63.94 a20.65,20.65 0 1,0 41.3,0 a20.65,20.65 0 1,0 -41.3,0 Z"
+        android:strokeColor="#1F3D3B"
+        android:strokeWidth="5.1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M24.04,63.94 a9.28,9.28 0 1,0 18.56,0 a9.28,9.28 0 1,0 -18.56,0 Z"
+        android:fillColor="#E8A33D" />
+    <path
+        android:pathData="M34.25,60.23 a2.78,2.78 0 1,0 5.57,0 a2.78,2.78 0 1,0 -5.57,0 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M66.03,63.94 a20.65,20.65 0 1,0 41.3,0 a20.65,20.65 0 1,0 -41.3,0 Z"
+        android:strokeColor="#1F3D3B"
+        android:strokeWidth="5.1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M77.4,63.94 a9.28,9.28 0 1,0 18.56,0 a9.28,9.28 0 1,0 -18.56,0 Z"
+        android:fillColor="#E8A33D" />
+    <path
+        android:pathData="M87.61,60.23 a2.78,2.78 0 1,0 5.57,0 a2.78,2.78 0 1,0 -5.57,0 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M7.8,23.58 L60,35.64 L112.2,23.58"
+        android:strokeColor="#1F3D3B"
+        android:strokeWidth="5.1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M60,76.94 L66.26,86.68 L60,96.42 L53.74,86.68 Z"
+        android:fillColor="#E8A33D" />
+</vector>

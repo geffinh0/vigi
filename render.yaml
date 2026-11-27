@@ -1,4 +1,4 @@
-# Blueprint do Render: publica o VIGI Família (painel web/PWA do familiar)
+# Blueprint do Render: publica o Vigi Família (painel web/PWA do familiar)
 # como site estático. Render > New > Blueprint > selecione este repositório.
 services:
   - type: web

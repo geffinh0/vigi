@@ -1,11 +1,12 @@
 // Edge Function: notify-emergency-contacts
-// Envia push FCM (HTTP v1) aos familiares vinculados quando há pânico ou
-// check-in expirado. ADR-001 (Canal 2: alerta remoto via FCM).
+// Envia push FCM (HTTP v1) aos familiares vinculados quando há um pedido de
+// ajuda, quando o check-in não é respondido e quando o pedido é cancelado
+// ("está tudo bem"). ADR-001 (Canal 2: alerta remoto via FCM).
 //
-// Recebe apenas { event_id } — do gatilho do banco (inserção de 'panic' ou
-// 'alert_triggered') ou do próprio app como reforço. O evento é carregado com a
-// service role e "reivindicado" (notified_at), então cada alerta gera um único
-// envio e o chamador não consegue forjar alertas.
+// Recebe apenas { event_id }: do gatilho do banco (inserção de 'panic',
+// 'alert_triggered' ou 'alert_resolved') ou do próprio app como reforço. O
+// evento é carregado com a service role e "reivindicado" (notified_at), então
+// cada evento gera um único envio e o chamador não consegue forjar alertas.
 // { healthcheck: true } valida a conta de serviço do Firebase sem enviar nada.
 //
 // Secret necessário: FIREBASE_SERVICE_ACCOUNT = JSON da conta de serviço do
@@ -95,6 +96,41 @@ function parseServiceAccount(raw: string): ServiceAccount {
   );
 }
 
+const ALERT_TYPES = ["panic", "alert_triggered"];
+
+/// Só o primeiro nome: é assim que a família chama a pessoa.
+export function firstName(fullName: string | null | undefined): string {
+  const first = (fullName ?? "").trim().split(/\s+/)[0];
+  return first.length > 0 ? first : "Seu familiar";
+}
+
+/// Texto do push, na voz do Vigi: frases diretas, sem caixa alta, sem
+/// emoji, dizendo o que aconteceu e o que fazer.
+export function pushText(
+  eventType: string,
+  name: string,
+  hasLocation: boolean,
+): { title: string; body: string } {
+  const where = hasLocation ? " Abra o Vigi para ver a localização." : "";
+  switch (eventType) {
+    case "panic":
+      return {
+        title: `${name} pediu ajuda`,
+        body: `${name} segurou o botão de ajuda. Ligue agora.${where}`,
+      };
+    case "alert_resolved":
+      return {
+        title: `${name} está bem`,
+        body: `${name} cancelou o pedido de ajuda. Não é preciso fazer nada.`,
+      };
+    default:
+      return {
+        title: `${name} não respondeu ao check-in`,
+        body: `O Vigi chamou e não teve resposta. Ligue para ${name} agora.${where}`,
+      };
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const supabaseAdmin = createClient(
@@ -117,16 +153,16 @@ Deno.serve(async (req) => {
       return json({ error: "Invalid payload" }, 400);
     }
 
-    // Reivindica o evento: só alertas recentes e ainda não notificados.
+    // Reivindica o evento: só eventos recentes e ainda não notificados.
     const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data: event, error: claimError } = await supabaseAdmin
       .from("checkin_events")
       .update({ notified_at: new Date().toISOString() })
       .eq("id", eventId)
       .is("notified_at", null)
-      .in("event_type", ["panic", "alert_triggered"])
+      .in("event_type", [...ALERT_TYPES, "alert_resolved"])
       .gt("created_at", cutoff)
-      .select("user_id, event_type, latitude, longitude")
+      .select("user_id, event_type, latitude, longitude, created_at")
       .maybeSingle();
     if (claimError) return json({ error: claimError.message }, 500);
     if (!event) {
@@ -143,6 +179,53 @@ Deno.serve(async (req) => {
     const eventType: string = event.event_type;
     const latitude: number | null = event.latitude;
     const longitude: number | null = event.longitude;
+    const isAllClear = eventType === "alert_resolved";
+
+    // "Está tudo bem" só faz sentido para quem recebeu o pedido de ajuda:
+    // sem um alerta notificado antes deste evento, não há o que desfazer.
+    if (isAllClear) {
+      const { data: lastAlert } = await supabaseAdmin
+        .from("checkin_events")
+        .select("created_at, notified_at")
+        .eq("user_id", userId)
+        .in("event_type", ALERT_TYPES)
+        .lt("created_at", event.created_at)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!lastAlert || lastAlert.notified_at == null) {
+        return json({ success: true, skipped: "nenhum alerta notificado antes" });
+      }
+      // Um mesmo pedido pode ser encerrado por mais de um caminho no app:
+      // a família recebe um único "está tudo bem".
+      const { data: earlier } = await supabaseAdmin
+        .from("checkin_events")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("event_type", "alert_resolved")
+        .not("notified_at", "is", null)
+        .neq("id", eventId)
+        .gt("created_at", lastAlert.created_at)
+        .limit(1);
+      if ((earlier ?? []).length > 0) {
+        return json({ success: true, skipped: "pedido já encerrado" });
+      }
+    }
+
+    // O pedido foi cancelado antes de este aviso sair (toque por engano,
+    // por exemplo): não há por que alarmar a família.
+    if (!isAllClear) {
+      const { data: resolved } = await supabaseAdmin
+        .from("checkin_events")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("event_type", "alert_resolved")
+        .gt("created_at", event.created_at)
+        .limit(1);
+      if ((resolved ?? []).length > 0) {
+        return json({ success: true, skipped: "pedido cancelado antes do envio" });
+      }
+    }
 
     // 1. Familiares vinculados e aceitos
     const { data: viewers, error: linksError } = await supabaseAdmin
@@ -173,17 +256,11 @@ Deno.serve(async (req) => {
       .select("full_name")
       .eq("id", userId)
       .maybeSingle();
-    const name = profile?.full_name?.trim() || "Seu familiar";
-    const isPanic = eventType === "panic";
-    const title = isPanic
-      ? "🚨 VIGI — Botão de pânico acionado"
-      : "⚠️ VIGI — Check-in não confirmado";
-    const local = latitude != null && longitude != null
-      ? ` Localização: https://maps.google.com/?q=${latitude},${longitude}`
-      : "";
-    const body = (isPanic
-      ? `${name} acionou o botão de pânico.`
-      : `${name} não confirmou que está bem no prazo combinado.`) + local;
+    const { title, body } = pushText(
+      eventType,
+      firstName(profile?.full_name),
+      latitude != null && longitude != null,
+    );
 
     // 4. Envio FCM HTTP v1
     if (!saRaw) {
@@ -224,7 +301,14 @@ Deno.serve(async (req) => {
               android: {
                 priority: "HIGH",
                 notification: {
-                  channel_id: "alerta_checkin",
+                  // O "está tudo bem" chega sem alarme, em canal próprio.
+                  // Apps antigos, sem esse canal, usam o canal padrão.
+                  channel_id: isAllClear ? "vigi_tudo_bem" : "alerta_checkin",
+                  icon: "ic_stat_vigi",
+                  // Sinal 600 só no pedido de ajuda; Petróleo 800 no resto.
+                  color: isAllClear ? "#1F3D3B" : "#C23B3A",
+                  // Mesma etiqueta: o "está tudo bem" substitui o alerta.
+                  tag: `vigi_${userId}`,
                   sound: "default",
                 },
               },

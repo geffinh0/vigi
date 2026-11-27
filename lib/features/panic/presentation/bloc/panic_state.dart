@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/services/emergency_dispatcher.dart';
 import '../../domain/entities/panic_alert_entity.dart';
 
 /// Estados do `PanicBloc`.
@@ -19,9 +20,16 @@ class PanicLoading extends PanicState {
   const PanicLoading();
 }
 
-/// Pânico ativo, com o resultado do envio dos SMS.
+/// Pedido de ajuda ativo, com o resultado do envio dos SMS.
 class PanicActive extends PanicState {
-  const PanicActive(this.alert, {this.contactsFound, this.smsSent});
+  const PanicActive(
+    this.alert, {
+    this.contactsFound,
+    this.smsSent,
+    this.deliveries = const [],
+    this.sentAt,
+    this.address,
+  });
 
   final PanicAlertEntity alert;
 
@@ -31,13 +39,35 @@ class PanicActive extends PanicState {
   /// Quantidade de SMS enviados automaticamente pelo aparelho.
   final int? smsSent;
 
+  /// Quem foi avisado e se a mensagem saiu.
+  final List<ContactDelivery> deliveries;
+
+  /// Quando os contatos foram avisados.
+  final DateTime? sentAt;
+
+  /// Endereço aproximado enviado aos contatos.
+  final String? address;
+
   @override
-  List<Object?> get props => [alert, contactsFound, smsSent];
+  List<Object?> get props => [
+    alert,
+    contactsFound,
+    smsSent,
+    deliveries,
+    sentAt,
+    address,
+  ];
 }
 
-/// Alerta encerrado.
+/// Pedido cancelado pela pessoa. [contactsNotified] diz se os contatos já
+/// tinham sido avisados (e, portanto, receberam também o cancelamento).
 class PanicResolvedState extends PanicState {
-  const PanicResolvedState();
+  const PanicResolvedState({this.contactsNotified = false});
+
+  final bool contactsNotified;
+
+  @override
+  List<Object?> get props => [contactsNotified];
 }
 
 /// Erro exibido ao usuário.

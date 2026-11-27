@@ -5,7 +5,6 @@ import '../../features/checkin/domain/entities/monitoring_mode_entity.dart';
 import '../../features/checkin/domain/usecases/confirm_checkin_usecase.dart';
 import '../../features/checkin/domain/usecases/get_available_modes_usecase.dart';
 import '../../features/checkin/domain/usecases/start_monitoring_usecase.dart';
-import '../../features/panic/domain/usecases/trigger_panic_usecase.dart';
 import '../../injection/injection_container.dart' as di;
 import 'widget_sync_service.dart';
 
@@ -16,7 +15,6 @@ Future<bool> handleWidgetBackgroundUri(
   required WidgetSyncService widgetSyncService,
   StartMonitoringUseCase? startMonitoringUseCase,
   GetAvailableModesUseCase? getAvailableModesUseCase,
-  TriggerPanicUseCase? triggerPanicUseCase,
 }) async {
   if (uri == null) return false;
 
@@ -27,12 +25,10 @@ Future<bool> handleWidgetBackgroundUri(
       uriString.contains('confirmar_checkin')) {
     await confirmCheckinUseCase(const ConfirmCheckinParams());
     await widgetSyncService.updateWidgetData(
-      vigiState: 'normal',
+      vigiState: 'vigiando',
       minutesRemaining: 60,
-      modeName: 'Rotina padrão',
+      modeName: 'Rotina',
       isMonitoring: true,
-      timeDisplay: '60 min',
-      statusDisplay: 'Rotina padrão',
     );
     return true;
   }
@@ -61,12 +57,10 @@ Future<bool> handleWidgetBackgroundUri(
         ),
       );
       await widgetSyncService.updateWidgetData(
-        vigiState: 'normal',
+        vigiState: 'vigiando',
         minutesRemaining: interval,
         modeName: 'Banho',
         isMonitoring: true,
-        timeDisplay: '$interval min',
-        statusDisplay: 'Banho',
       );
       return true;
     }
@@ -96,32 +90,18 @@ Future<bool> handleWidgetBackgroundUri(
         ),
       );
       await widgetSyncService.updateWidgetData(
-        vigiState: 'normal',
+        vigiState: 'noturno',
         minutesRemaining: interval,
         modeName: 'Sono',
         isMonitoring: true,
-        timeDisplay: '$interval min',
-        statusDisplay: 'Sono',
       );
       return true;
     }
   }
 
-  // 4. Ação: Disparar Alerta SOS de Pânico
-  if (uri.host == 'disparar_panico' || uriString.contains('disparar_panico')) {
-    if (triggerPanicUseCase != null) {
-      await triggerPanicUseCase(const TriggerPanicParams());
-      await widgetSyncService.updateWidgetData(
-        vigiState: 'alerta',
-        minutesRemaining: 0,
-        modeName: 'SOS',
-        isMonitoring: true,
-        timeDisplay: 'SOS ATIVO',
-        statusDisplay: 'EMERGÊNCIA',
-      );
-      return true;
-    }
-  }
+  // O pedido de ajuda nunca sai por um toque só: `pedir_ajuda` abre a tela
+  // de pânico no app, onde a pessoa segura o botão por 3 segundos. Por isso
+  // não há ação de pânico em segundo plano.
 
   return false;
 }
@@ -148,16 +128,11 @@ Future<void> widgetBackgroundCallback(Uri? uri) async {
       di.sl.isRegistered<GetAvailableModesUseCase>()
       ? di.sl<GetAvailableModesUseCase>()
       : null;
-  final triggerPanicUseCase = di.sl.isRegistered<TriggerPanicUseCase>()
-      ? di.sl<TriggerPanicUseCase>()
-      : null;
-
   await handleWidgetBackgroundUri(
     uri,
     confirmCheckinUseCase: confirmCheckinUseCase,
     widgetSyncService: widgetSyncService,
     startMonitoringUseCase: startMonitoringUseCase,
     getAvailableModesUseCase: getAvailableModesUseCase,
-    triggerPanicUseCase: triggerPanicUseCase,
   );
 }

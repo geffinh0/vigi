@@ -89,6 +89,11 @@ class StopMonitoringRequested extends CheckinEvent {
   const StopMonitoringRequested();
 }
 
+/// "Preciso de mais 10 minutos": adia o prazo, uma vez por ciclo.
+class SnoozeCheckinRequested extends CheckinEvent {
+  const SnoozeCheckinRequested();
+}
+
 /// Pulso de 1 s da contagem regressiva (interno).
 class CheckinTickReceived extends CheckinEvent {
   const CheckinTickReceived({
@@ -105,8 +110,18 @@ class CheckinTickReceived extends CheckinEvent {
   List<Object?> get props => [remainingSeconds, nextDeadline, activeMode];
 }
 
-/// Disparado internamente quando o alarme de check-in expirado não é
-/// respondido dentro do período de tolerância: aciona os contatos de emergência.
+/// Pulso de 1 s da tolerância, entre o prazo e o aviso aos contatos (interno).
+class CheckinGraceTickReceived extends CheckinEvent {
+  const CheckinGraceTickReceived(this.remainingSeconds);
+
+  final int remainingSeconds;
+
+  @override
+  List<Object?> get props => [remainingSeconds];
+}
+
+/// Disparado internamente quando a chamada não é respondida dentro da
+/// tolerância: aciona os contatos de emergência.
 class CheckinEscalationRequested extends CheckinEvent {
   const CheckinEscalationRequested();
 }

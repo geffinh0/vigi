@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 
-/// Logger centralizado do projeto VIGI.
+/// Logger centralizado do projeto Vigi.
 ///
 /// Proíbe o uso de `print` solto no código de produção e garante
 /// visibilidade tanto no DevTools quanto no console do terminal.
@@ -9,7 +9,7 @@ abstract final class AppLogger {
   static void debug(String message, [Object? error, StackTrace? stackTrace]) {
     developer.log(
       message,
-      name: 'Guardiao.DEBUG',
+      name: 'Vigi.DEBUG',
       error: error,
       stackTrace: stackTrace,
     );
@@ -19,14 +19,14 @@ abstract final class AppLogger {
   }
 
   static void info(String message) {
-    developer.log(message, name: 'Guardiao.INFO');
+    developer.log(message, name: 'Vigi.INFO');
     if (kDebugMode) {
       debugPrint('[INFO] $message');
     }
   }
 
   static void warning(String message, [Object? error]) {
-    developer.log(message, name: 'Guardiao.WARN', error: error);
+    developer.log(message, name: 'Vigi.WARN', error: error);
     if (kDebugMode) {
       debugPrint('[WARN] $message${error != null ? ' | $error' : ''}');
     }
@@ -35,7 +35,7 @@ abstract final class AppLogger {
   static void error(String message, [Object? error, StackTrace? stackTrace]) {
     developer.log(
       message,
-      name: 'Guardiao.ERROR',
+      name: 'Vigi.ERROR',
       error: error,
       stackTrace: stackTrace,
     );

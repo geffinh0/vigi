@@ -27,7 +27,13 @@ abstract class CheckinRemoteDataSource {
     required DateTime nextDeadline,
     double? latitude,
     double? longitude,
+    int? intervalMinutes,
+    String? modeId,
+    bool resolvesAlert = false,
   });
+
+  /// Adia o prazo do check-in atual ("Preciso de mais 10 minutos").
+  Future<void> extendDeadline(DateTime newDeadline);
 
   Future<void> stopMonitoring();
 
@@ -183,28 +189,74 @@ class CheckinRemoteDataSourceImpl implements CheckinRemoteDataSource {
     required DateTime nextDeadline,
     double? latitude,
     double? longitude,
+    int? intervalMinutes,
+    String? modeId,
+    bool resolvesAlert = false,
   }) async {
     final user = client.auth.currentUser;
     if (user == null) throw const AuthException('Usuário não autenticado.');
 
     final now = DateTime.now().toUtc();
 
+    final settings = <String, dynamic>{
+      'next_deadline': nextDeadline.toUtc().toIso8601String(),
+      'last_ping': now.toIso8601String(),
+      'updated_at': now.toIso8601String(),
+      // O servidor calcula a tolerância a partir do intervalo: ao voltar de
+      // um modo temporário (Banho, Sono) para a Rotina, ele precisa do novo.
+      'interval_minutes': ?intervalMinutes,
+    };
+    if (modeId != null && !modeId.startsWith('system-default')) {
+      settings['active_mode_id'] = modeId;
+    }
+
+    try {
+      await client
+          .from('monitoring_settings')
+          .update(settings)
+          .eq('user_id', user.id);
+    } catch (_) {
+      if (!settings.containsKey('active_mode_id')) rethrow;
+      // Coluna active_mode_id ainda ausente no banco remoto.
+      settings.remove('active_mode_id');
+      await client
+          .from('monitoring_settings')
+          .update(settings)
+          .eq('user_id', user.id);
+    }
+
+    await client.from('checkin_events').insert([
+      // Fecha o alerta: a família é avisada de que está tudo bem.
+      if (resolvesAlert)
+        {
+          'user_id': user.id,
+          'event_type': 'alert_resolved',
+          'created_at': now.toIso8601String(),
+        },
+      {
+        'user_id': user.id,
+        'event_type': 'checkin',
+        'latitude': latitude,
+        'longitude': longitude,
+        'created_at': now
+            .add(const Duration(milliseconds: 1))
+            .toIso8601String(),
+      },
+    ]);
+  }
+
+  @override
+  Future<void> extendDeadline(DateTime newDeadline) async {
+    final user = client.auth.currentUser;
+    if (user == null) throw const AuthException('Usuário não autenticado.');
+
     await client
         .from('monitoring_settings')
         .update({
-          'next_deadline': nextDeadline.toUtc().toIso8601String(),
-          'last_ping': now.toIso8601String(),
-          'updated_at': now.toIso8601String(),
+          'next_deadline': newDeadline.toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('user_id', user.id);
-
-    await client.from('checkin_events').insert({
-      'user_id': user.id,
-      'event_type': 'checkin',
-      'latitude': latitude,
-      'longitude': longitude,
-      'created_at': now.toIso8601String(),
-    });
   }
 
   @override

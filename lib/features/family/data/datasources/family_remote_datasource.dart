@@ -7,7 +7,7 @@ import '../models/monitoring_snapshot_model.dart';
 abstract class FamilyRemoteDataSource {
   Future<List<FamilyLinkModel>> getFamilyLinks();
 
-  /// Código VIGI curto do usuário logado (gerado na primeira consulta).
+  /// Código Vigi curto do usuário logado (gerado na primeira consulta).
   Future<String> getMyLinkCode();
 
   /// Familiar pede para acompanhar a dona do código. Retorna o nome dela.

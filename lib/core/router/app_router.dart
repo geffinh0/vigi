@@ -1,12 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/app.dart';
+import '../../app/permissions_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/checkin/presentation/pages/checkin_alert_page.dart';
-import '../../features/checkin/presentation/pages/monitoring_settings_page.dart';
 import '../../features/contacts/presentation/pages/contacts_page.dart';
 import '../../features/family/presentation/cubit/family_dashboard_cubit.dart';
 import '../../features/family/presentation/pages/family_dashboard_page.dart';
@@ -46,11 +46,11 @@ GoRouter buildRouter(AuthBloc authBloc) {
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const GuardiaoHomePage(),
+        builder: (context, state) => const VigiHomePage(),
       ),
       GoRoute(
-        path: '/monitoring-settings',
-        builder: (context, state) => const MonitoringSettingsPage(),
+        path: '/permissions',
+        builder: (context, state) => const PermissionsPage(),
       ),
       GoRoute(
         path: '/checkin-alert',
